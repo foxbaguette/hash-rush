@@ -1197,6 +1197,7 @@ function resetVolleys() {
 const pending = () => volleys.reduce((s, v) => s + v.quota, 0) + [...active].reduce((s, t) => s + t.left, 0);
 
 const MOVE = 1.0;   // time budgeted for a ship to fly from its orbit to its firing spot
+const SHOT_BLOCKS = 5, SHOTS_MAX = 18, SHOT_GAP = 0.14;   // machine-gun burst: blocks per shot, most shots per crater, seconds between shots
 // which ship fires an attack: the one closest to the crater (idle ships first), the next in
 // turn, or a ship chosen in the HUD / passed to planet.attack(n, shipId)
 function pickAttacker(siteDir, shipId) {
@@ -1216,7 +1217,6 @@ function schedule(n, shipId) {
   const already = pending();
   n = Math.min(n, total - removed - already);
   if (n <= 0) return;
-  const deadline = simT + ATTACK_SECONDS;
   // split the blocks at crater boundaries (sequence index removed + already pending onwards),
   // so every volley digs exactly one crater and is aimed at it
   const chunks = [];
@@ -1226,20 +1226,18 @@ function schedule(n, shipId) {
     k += take; left -= take;
   }
   const ship = fleet.length ? pickAttacker(chunks[0].d, shipId) : null;
-  if (!ship) { for (const c of chunks) volleys.push({ at: simT, shipId: null, quota: c.n, deadline, kStart: c.k }); return; }
-  // first fly into position, then fire; long weapons get less time to move so they still land in time
+  if (!ship) { for (const c of chunks) volleys.push({ at: simT, shipId: null, quota: c.n, deadline: simT + ATTACK_SECONDS, kStart: c.k }); return; }
+  // machine-gun fire: a quick stream of short shots, about one per SHOT_BLOCKS blocks
   const m = MEASURE[ship.weapon];
-  const move = Math.max(0.3, Math.min(MOVE, ATTACK_SECONDS - m.last - 0.15));
-  const window = Math.max(0, ATTACK_SECONDS - m.last - 0.15 - move);
   const plan = [];
   for (const c of chunks) {
-    const v = Math.max(1, Math.min(Math.ceil(c.n / 60), 1 + Math.floor(window / 0.6)));
+    const v = Math.max(1, Math.min(SHOTS_MAX, Math.round(c.n / SHOT_BLOCKS)));
     for (let j = 0, kk = c.k; j < v; j++) { const q = Math.floor(c.n / v) + (j < c.n % v ? 1 : 0); plan.push({ quota: q, kStart: kk }); kk += q; }
   }
   if (!ship.queued && !ship.firing) ship.aimDir = chunks[0].d;
   plan.forEach((p, j) => {
-    const at = simT + move + (plan.length === 1 ? 0 : window * j / (plan.length - 1));
-    volleys.push({ at, shipId: ship.id, quota: p.quota, deadline, kStart: p.kStart });
+    const at = simT + MOVE + j * SHOT_GAP;   // fly into position first, then the burst
+    volleys.push({ at, shipId: ship.id, quota: p.quota, deadline: at + m.last + 1.2, kStart: p.kStart });
     ship.queued++;
   });
   volleys.sort((a, b) => a.at - b.at);
@@ -1264,7 +1262,7 @@ function launchVolley(v) {
   // the crater this volley's blocks belong to; it fires only once every block before them is gone,
   // so its hits take exactly its own blocks (and never another crater's)
   const site = siteFor(Math.min(v.kStart ?? removed, Math.max(0, total - 1)));
-  if (v.kStart != null && removed < v.kStart) { if (simT >= v.deadline - 0.1) v.deadline += 0.5; return false; }
+  if (v.kStart != null && removed < v.kStart && siteFor(Math.min(removed, Math.max(0, total - 1))) !== site) { if (simT >= v.deadline - 0.1) v.deadline += 0.5; return false; }
   if (!ship) {   // no fleet at all: the blocks still go
     const list = fireBatch(v.quota);
     if (list.length) { const e = world.api(null), t = surfaceTarget(site.d); e.flash(t.p, 0.3, [1, 0.85, 0.6]); }
