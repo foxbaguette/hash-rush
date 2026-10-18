@@ -1,0 +1,91 @@
+/* The Hash Rush: shared look for the landing page and the game screen.
+   Buttons feel like machined ship hardware: brushed metal, a sheen sweeping across on hover,
+   edge lights powering up from the centre and a short chromatic glitch on the label. */
+:root {
+  --a: #ff6a1a; --a-hi: #ff9550; --a-lo: #c9480a;
+  --ink: #f1ece2; --mute: #8f887c; --line: #ffffff1f; --glass: #0b0908e8;
+  --cyan: #3be8ff; --magenta: #ff2bd6;
+  --display: Michroma, sans-serif; --label: 'Barlow Condensed', sans-serif; --text: Barlow, system-ui, sans-serif;
+}
+
+[hidden] { display: none !important; }
+
+/* ---------------------------------------------------------------- primary button */
+.btn {
+  position: relative; isolation: isolate; overflow: hidden;
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  border: 0; cursor: pointer; text-decoration: none;
+  color: #140700; font: 800 15px var(--label); letter-spacing: 0.25em; text-transform: uppercase;
+  padding: 15px 32px;
+  background:
+    repeating-linear-gradient(0deg, #ffffff0f 0 1px, #0000 1px 3px),            /* brushed metal */
+    linear-gradient(180deg, var(--a-hi) 0%, var(--a) 46%, var(--a-lo) 100%);
+  clip-path: polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%);
+  transition: letter-spacing 0.25s ease, filter 0.25s ease, transform 0.08s ease;
+}
+/* the sheen that sweeps across */
+.btn::before {
+  content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(105deg, #0000 32%, #ffffffa8 47%, #ffffff26 53%, #0000 66%);
+  transform: translateX(-130%);
+}
+/* edge lights: two bright hairlines that grow out from the centre */
+.btn::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background:
+    linear-gradient(#fff, #fff) 50% 0 / 0 2px no-repeat,
+    linear-gradient(#fff, #fff) 50% 100% / 0 2px no-repeat;
+  opacity: 0.85;
+  transition: background-size 0.35s cubic-bezier(.2, .8, .2, 1);
+}
+.btn:hover, .btn:focus-visible { letter-spacing: 0.31em; filter: brightness(1.08) saturate(1.1); animation: btn-glitch 0.34s steps(1) 1; }
+.btn:hover::before, .btn:focus-visible::before { animation: btn-sheen 0.75s cubic-bezier(.3, .7, .3, 1) 1; }
+.btn:hover::after, .btn:focus-visible::after { background-size: 100% 2px, 100% 2px; }
+.btn:active { transform: translateY(1px) scale(0.985); filter: brightness(0.9); }
+.btn:focus-visible { outline: none; }
+.btn:disabled, .btn[aria-disabled="true"] { cursor: not-allowed; filter: grayscale(0.7) brightness(0.65); animation: none; letter-spacing: 0.25em; }
+.btn:disabled::before, .btn:disabled::after { animation: none; background-size: 0 2px, 0 2px; }
+
+/* secondary: a dark plate with an orange frame that fills on hover */
+.btn.ghost {
+  color: var(--ink);
+  background:
+    repeating-linear-gradient(0deg, #ffffff08 0 1px, #0000 1px 3px),
+    linear-gradient(180deg, #2a2420, #15110e);
+}
+.btn.ghost::after {
+  background:
+    linear-gradient(var(--a), var(--a)) 50% 0 / 100% 1px no-repeat,
+    linear-gradient(var(--a), var(--a)) 50% 100% / 100% 1px no-repeat,
+    linear-gradient(90deg, #ff6a1a00, #ff6a1a40, #ff6a1a00) 50% 50% / 0 100% no-repeat;
+  opacity: 1;
+}
+.btn.ghost:hover::after, .btn.ghost:focus-visible::after { background-size: 100% 1px, 100% 1px, 100% 100%; }
+.btn.small { padding: 10px 20px; font-size: 13px; }
+
+/* text buttons (Cancel, Sign out): an underline that powers up from the left */
+.link {
+  position: relative; background: none; border: 0; padding: 6px 0; cursor: pointer;
+  color: var(--mute); font: 500 14px var(--text); letter-spacing: 0.04em;
+  transition: color 0.2s;
+}
+.link::after { content: ''; position: absolute; left: 0; right: 0; bottom: 2px; height: 1px; background: var(--a); transform: scaleX(0); transform-origin: left; transition: transform 0.3s cubic-bezier(.2, .8, .2, 1); }
+.link:hover, .link:focus-visible { color: var(--ink); outline: none; }
+.link:hover::after, .link:focus-visible::after { transform: scaleX(1); }
+
+@keyframes btn-sheen { from { transform: translateX(-130%); } to { transform: translateX(130%); } }
+@keyframes btn-glitch {
+  0%   { text-shadow: 2px 0 var(--cyan), -2px 0 var(--magenta); transform: translateX(1px); }
+  30%  { text-shadow: -2px 0 var(--cyan), 2px 0 var(--magenta); transform: translateX(-1px) skewX(-4deg); }
+  60%  { text-shadow: 1px 0 var(--cyan), -1px 0 var(--magenta); transform: none; }
+  100% { text-shadow: none; transform: none; }
+}
+
+/* ---------------------------------------------------------------- shared bits */
+.eyebrow { font: 600 13px var(--label); letter-spacing: 0.4em; color: var(--a); text-transform: uppercase; }
+.status { min-height: 22px; margin-top: 14px; font-size: 15px; color: #cfc6b6; text-shadow: 0 2px 12px #000; }
+.status.err { color: #ff9a7a; }
+
+@media (prefers-reduced-motion: reduce) {
+  .btn, .btn::before, .btn::after, .link::after { animation: none !important; transition: none !important; }
+}

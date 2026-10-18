@@ -1,0 +1,1716 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Hash Rush · Live</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Michroma&family=Barlow+Condensed:wght@500;600;800&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="ui.css">
+<style>
+  html, body { margin: 0; height: 100%; background: #000; color: var(--ink); overflow: hidden; font: 15px/1.5 var(--text); }
+  canvas#c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; opacity: 0; transition: opacity 1s; }
+  body.ready canvas#c { opacity: 1; }
+  canvas#c.drag { cursor: grabbing; }
+  .shade { position: fixed; inset: 0; pointer-events: none; background: linear-gradient(90deg, #000b 0%, #0004 26%, #0000 46%), linear-gradient(#0000 70%, #000a 100%), linear-gradient(#0008 0%, #0000 18%); }
+
+  /* planet, top left */
+  .hud { position: fixed; left: 48px; top: 40px; width: min(380px, calc(100vw - 96px)); }
+  .hud h1 { font: 400 clamp(30px, 3.4vw, 46px)/1.05 var(--display); letter-spacing: 0.02em; margin: 10px 0 6px; text-shadow: 0 4px 24px #000; }
+  .hud .tagline { color: #b8b0a2; font-weight: 300; text-shadow: 0 2px 10px #000; }
+  .meter { position: relative; height: 4px; margin: 22px 0 10px; background: #ffffff1c; overflow: hidden; }
+  .meter i { position: absolute; inset: 0 auto 0 0; width: 0; background: linear-gradient(90deg, var(--a-lo), var(--a-hi)); box-shadow: 0 0 12px var(--a); transition: width 1.2s cubic-bezier(.2, .8, .2, 1); }
+  .meter::after { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(90deg, #0000 0 22px, #000c 22px 24px); }
+  .nums { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; color: var(--mute); }
+  .nums b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  /* you, top right */
+  .me { position: fixed; right: 40px; top: 36px; display: flex; align-items: center; gap: 18px; }
+  .who-wrap { position: relative; }
+  .who { display: block; text-align: right; line-height: 1.25; background: none; border: 0; padding: 4px 0; color: var(--ink); font: inherit; cursor: default; }
+  .who.menu { cursor: pointer; }
+  .who.menu b::after { content: ''; display: inline-block; width: 6px; height: 6px; margin: 0 0 4px 9px; border-right: 1.5px solid var(--mute); border-bottom: 1.5px solid var(--mute); transform: rotate(45deg); transition: transform 0.25s, border-color 0.2s; }
+  .who.menu:hover b::after, .who.menu:focus-visible b::after { border-color: var(--ink); }
+  .who[aria-expanded="true"] b::after { transform: rotate(225deg) translate(-3px, -3px); }
+  .who:focus-visible { outline: 1px solid var(--a); outline-offset: 4px; }
+  .me-menu { position: absolute; right: 0; top: calc(100% + 10px); z-index: 10; min-width: 160px; padding: 8px 16px; text-align: right; background: var(--glass); border: 1px solid var(--line); box-shadow: 0 20px 40px #000b; animation: feed-in 0.2s cubic-bezier(.2, .8, .2, 1); }
+  .me-menu .link { display: block; margin-left: auto; padding: 7px 0; font-size: 15px; }
+  .who small { display: block; font: 600 11px var(--label); letter-spacing: 0.3em; text-transform: uppercase; color: var(--mute); }
+  .who b { font: 400 17px var(--display); letter-spacing: 0.02em; }
+
+  /* what just happened, bottom left */
+  /* kill feed: one compact row per hit, newest on top, older rows fade */
+  .feed { position: fixed; left: 48px; bottom: 40px; width: min(460px, calc(100vw - 96px)); display: flex; flex-direction: column; align-items: flex-start; gap: 5px; pointer-events: none; }
+  .feed .row { display: flex; align-items: center; gap: 8px; max-width: 100%; padding: 5px 10px 5px 8px; background: #000a; border-left: 2px solid var(--pc, var(--a)); font-size: 14px; color: #d8d0c2; animation: feed-in 0.3s cubic-bezier(.2, .8, .2, 1); transition: opacity 1s; }
+  .feed .row .who { font-weight: 600; white-space: nowrap; }
+  .feed .row .ar { color: #5d574e; }
+  .feed .row .wchip { font: 600 11px var(--label); letter-spacing: 0.12em; text-transform: uppercase; padding: 1px 7px; border: 1px solid currentColor; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .feed .row .num { color: var(--a-hi); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .feed .row em { font-style: normal; color: var(--mute); }
+  .feed .row.hash { background: #ff6a1acc; color: #140700; border-left-color: #fff; }
+  .feed .row.hash b { color: #140700; }
+  .feed .row.old { opacity: 0.35; }
+  .feed .rar-Abundant { color: #9aa0a6; } .feed .rar-Common { color: #c9c3b8; } .feed .rar-Rare { color: #5aa9ff; } .feed .rar-Epic { color: #c66bff; } .feed .rar-Legendary { color: #ffa53d; } .feed .rar-Mythical { color: #ff4d6d; }
+  @keyframes feed-in { from { opacity: 0; transform: translateX(-12px); } }
+
+  /* your loadout, bottom right */
+  .loadout { position: fixed; right: 40px; bottom: 40px; display: flex; flex-direction: column; align-items: flex-end; gap: 12px; text-align: right; }
+  /* your two cards docked into the plate like cartridges, the damage and the trigger on the plate */
+  .dock { display: flex; align-items: flex-end; gap: 26px; }
+  .dtiles { order: 2; display: flex; gap: 10px; }
+  .dtile { position: relative; width: 112px; height: 150px; padding: 0; overflow: hidden; cursor: pointer; text-align: left; color: var(--ink); font: inherit; background: #0b0908; border: 1px solid var(--rc, #ffffff33);
+    box-shadow: 0 0 22px color-mix(in srgb, var(--rc, #000) 35%, transparent), inset 0 0 0 1px #0006; transform: rotate(-4deg); transition: transform 0.35s cubic-bezier(.2, .8, .2, 1), box-shadow 0.3s; }
+  .dtile + .dtile { transform: rotate(3deg) translateY(4px); }
+  .dtile:hover, .dtile:focus-visible { transform: rotate(-6deg) translateY(-8px); box-shadow: 0 0 34px color-mix(in srgb, var(--rc, #000) 55%, transparent); outline: none; }
+  .dtile + .dtile:hover, .dtile + .dtile:focus-visible { transform: rotate(5deg) translateY(-6px); }
+  .dtile img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 30%; transform: scale(2.1); transform-origin: 50% 33%; }
+  .dtile::after { content: ''; position: absolute; inset: 0; background: linear-gradient(#0000 38%, #000e); pointer-events: none; }
+  .dtile .t { position: absolute; left: 8px; right: 8px; bottom: 7px; z-index: 1; line-height: 1.15; }
+  .dtile .t span { display: block; font: 600 10px var(--label); letter-spacing: 0.16em; text-transform: uppercase; color: var(--rc); }
+  .dtile .t b { display: block; font-size: 13px; font-weight: 600; }
+  .dtile .shb { position: absolute; top: 7px; right: 7px; z-index: 1; padding: 2px 6px; font: 600 10px var(--label); letter-spacing: 0.12em; text-transform: uppercase; color: #000; }
+  .dtile.empty { border-style: dashed; border-color: #ffffff40; box-shadow: none; background: #0b0908cc; }
+  .dtile.empty::after { display: none; }
+  .dtile.empty .t { top: 50%; bottom: auto; transform: translateY(-50%); text-align: center; }
+  .dtile.empty .t span { color: var(--mute); } .dtile.empty .t b { color: var(--a-hi); font: 600 12px var(--label); letter-spacing: 0.15em; text-transform: uppercase; margin-top: 4px; }
+  /* damage and trigger to the left of the cards, straight on the scene (no panel behind) */
+  .plate { order: 1; display: flex; align-items: center; gap: 20px; }
+  .plate .n { text-align: right; text-shadow: 0 2px 14px #000, 0 0 2px #000; }
+  .plate .n small { color: #b8b0a2; }
+  .plate .n b { display: block; font: 400 38px/1 var(--display); color: var(--a-hi); }
+  .plate .btn.attack { padding: 20px 30px; font-size: 18px; min-width: 190px; }
+  .btn.big { padding: 18px 50px; font-size: 18px; }
+  /* attack: recharging plate with a filling stripe, and a burst when it is ready again */
+  .fire { position: relative; display: inline-block; }
+  .fire .burst { position: absolute; inset: -20px -30px; pointer-events: none; opacity: 0; background: radial-gradient(closest-side, #ff9a50aa, #ff6a1a40 55%, #0000 78%); }
+  .fire .burst::after { content: ''; position: absolute; inset: 20px 30px; border: 2px solid var(--a-hi); transform: skewX(-14deg); opacity: 0; }
+  .fire.charged .burst { animation: charged-idle 2.6s ease-in-out infinite; }
+  .fire.flash .burst { animation: ready-burst 1.2s cubic-bezier(.2, .8, .2, 1) 1; }
+  .fire.flash .burst::after { animation: ready-ring 1.1s cubic-bezier(.2, .8, .2, 1) 1; }
+  .fire.flash .btn { animation: ready-pop 0.75s cubic-bezier(.2, .8, .2, 1) 1, btn-glitch 0.34s steps(1) 0.3s 1; }
+  .btn.attack .lbl { position: relative; font-variant-numeric: tabular-nums; }
+  .btn.attack .cd { display: none; position: absolute; inset: 0 auto 0 0; width: 0; z-index: -1; background: repeating-linear-gradient(-45deg, #ff6a1a66 0 8px, #ff6a1a2e 8px 16px); background-size: 22.6px 22.6px; border-right: 2px solid var(--a-hi); animation: cd-stripes 0.9s linear infinite; transition: width 0.25s linear; }
+  .btn.attack.cooling { color: #eadfcd; letter-spacing: 0.2em; cursor: progress; background: repeating-linear-gradient(0deg, #ffffff08 0 1px, #0000 1px 3px), linear-gradient(180deg, #2a2420, #120f0c); }
+  .btn.attack.cooling, .btn.attack.cooling:disabled { filter: none; }
+  .btn.attack.cooling .cd { display: block; }
+  @keyframes cd-stripes { to { background-position: 22.6px 0; } }
+  @keyframes ready-burst { 0% { opacity: 1; transform: scale(0.7); } 60% { opacity: 0.8; } 100% { opacity: 0; transform: scale(1.55); } }
+  @keyframes ready-ring { 0% { opacity: 1; transform: skewX(-14deg) scale(1); } 100% { opacity: 0; transform: skewX(-14deg) scale(1.45, 2); } }
+  @keyframes ready-pop { 0% { transform: scale(1); filter: brightness(2.3) saturate(1.5); } 35% { transform: scale(1.08); } 100% { transform: scale(1); filter: none; } }
+  @keyframes charged-idle { 0%, 100% { opacity: 0.1; } 50% { opacity: 0.36; } }
+  @media (prefers-reduced-motion: reduce) { .fire .burst, .fire .burst::after, .fire.flash .btn, .btn.attack .cd { animation: none !important; } }
+  .loadout .status { margin: 0; max-width: 380px; font-size: 14px; }
+  .loadout small { display: block; font: 600 11px var(--label); letter-spacing: 0.3em; text-transform: uppercase; color: var(--mute); }
+  .loadout b { font-weight: 500; }
+
+  /* hash found */
+  .banner { position: fixed; left: 50%; top: 40%; transform: translate(-50%, -50%); text-align: center; pointer-events: none; opacity: 0; transition: opacity 0.6s; }
+  .banner.on { opacity: 1; }
+  .banner h2 { font: 400 clamp(34px, 5vw, 70px)/1.05 var(--display); margin: 10px 0; text-shadow: 0 0 40px var(--a), 0 4px 30px #000; }
+  .banner p { margin: 0; font-size: 18px; color: #e8dfcf; text-shadow: 0 2px 12px #000; }
+
+  /* names in space */
+  #labels { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
+  .tag { position: absolute; left: 0; top: 0; white-space: nowrap; font: 600 12px var(--label); letter-spacing: 0.18em; text-transform: uppercase; color: #e8e2d6d9; text-shadow: 0 1px 6px #000; transition: opacity 0.3s; }
+  .tag i { display: inline-block; width: 10px; height: 2px; margin-right: 6px; vertical-align: 4px; }
+  .tag.mine { color: #fff; }
+  .tag.firing { color: #fff; }
+  .tag.firing::after { content: attr(data-weapon); margin-left: 8px; color: var(--a); letter-spacing: 0.1em; }
+  .tag.hidden { opacity: 0.18; }
+
+  .busy { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); font: 600 13px var(--label); letter-spacing: 0.4em; text-transform: uppercase; color: var(--a); }
+  .err { position: fixed; inset: 0; display: grid; place-items: center; padding: 16px; text-align: center; }
+
+  /* ---------------------------------------------------------------- hangar */
+  dialog.hangar { width: min(1180px, calc(100vw - 32px)); height: min(780px, calc(100vh - 32px)); max-width: none; max-height: none; padding: 0; border: 1px solid var(--line); background: var(--glass); color: var(--ink); box-shadow: 0 40px 100px #000d; }
+  dialog.hangar::backdrop { background: #000b; backdrop-filter: blur(4px); }
+  .hg { display: grid; grid-template-rows: auto auto 1fr auto; height: 100%; }
+  .hg-top { display: flex; justify-content: space-between; align-items: flex-start; padding: 28px 34px 10px; }
+  .hg-top h2 { font: 400 26px var(--display); margin: 8px 0 0; }
+  .tabs { display: flex; gap: 6px; padding: 0 34px; border-bottom: 1px solid var(--line); }
+  .tabs button { position: relative; background: none; border: 0; color: var(--mute); cursor: pointer; font: 600 14px var(--label); letter-spacing: 0.3em; text-transform: uppercase; padding: 14px 16px; transition: color 0.2s; }
+  .tabs button::after { content: ''; position: absolute; left: 16px; right: 16px; bottom: -1px; height: 2px; background: var(--a); transform: scaleX(0); transition: transform 0.3s cubic-bezier(.2, .8, .2, 1); }
+  .tabs button:hover { color: var(--ink); }
+  .tabs button[aria-selected="true"] { color: var(--ink); }
+  .tabs button[aria-selected="true"]::after { transform: scaleX(1); }
+  .hg-body { display: grid; grid-template-columns: 360px 1fr; min-height: 0; }
+  .list-col { display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--line); }
+  .filters { display: flex; align-items: center; gap: 12px; padding: 16px 20px 12px 34px; }
+  .filters input[type=search] { flex: 1; min-width: 0; font: 400 15px var(--text); color: var(--ink); background: #ffffff0d; border: 1px solid #ffffff1f; border-radius: 2px; padding: 8px 10px; outline: none; }
+  .filters input[type=search]:focus { border-color: var(--a); }
+  .switch { display: flex; align-items: center; gap: 8px; cursor: pointer; font: 600 12px var(--label); letter-spacing: 0.2em; text-transform: uppercase; color: var(--mute); white-space: nowrap; user-select: none; }
+  .switch input { appearance: none; width: 34px; height: 18px; margin: 0; border: 1px solid #ffffff33; background: #ffffff0d; position: relative; cursor: pointer; transition: background 0.2s, border-color 0.2s; }
+  .switch input::after { content: ''; position: absolute; left: 2px; top: 2px; width: 12px; height: 12px; background: var(--mute); transition: transform 0.25s cubic-bezier(.2, .8, .2, 1), background 0.2s; }
+  .switch input:checked { background: #ff6a1a33; border-color: var(--a); }
+  .switch input:checked::after { transform: translateX(16px); background: var(--a); }
+  .switch:has(input:checked) { color: var(--ink); }
+  .list { overflow-y: auto; padding: 0 20px 20px 34px; }
+  .item { display: grid; grid-template-columns: 44px 1fr auto; gap: 12px; align-items: center; width: 100%; text-align: left; background: none; border: 0; border-left: 2px solid transparent; color: var(--ink); cursor: pointer; padding: 8px 10px; margin: 2px 0; font: inherit; transition: background 0.2s, border-color 0.2s; }
+  .item:hover { background: #ffffff0a; }
+  .item[aria-current="true"] { background: #ff6a1a14; border-left-color: var(--a); }
+  .item img { width: 44px; height: 60px; object-fit: cover; background: #ffffff0d; }
+  .item .nm { font-weight: 500; line-height: 1.2; }
+  .item .rr { display: block; font: 600 11px var(--label); letter-spacing: 0.2em; text-transform: uppercase; margin-top: 3px; }
+  .item .own { font: 600 11px var(--label); letter-spacing: 0.15em; text-transform: uppercase; color: var(--mute); white-space: nowrap; }
+  .item .own.yes { color: #7dffb2; }
+  .item.dim .nm, .item.dim img { opacity: 0.5; }
+  .detail { display: grid; grid-template-columns: 1.1fr 1fr; min-height: 0; }
+  .preview { position: relative; background: #000; }
+  .preview canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .info { padding: 26px 34px; overflow-y: auto; }
+  .info h3 { font: 400 26px/1.15 var(--display); margin: 8px 0 6px; }
+  .info .meta { color: var(--mute); font-size: 14px; }
+  .shines { display: flex; flex-wrap: wrap; gap: 8px; margin: 22px 0 18px; }
+  .shine { position: relative; min-width: 96px; text-align: left; background: #ffffff08; border: 1px solid #ffffff22; color: var(--ink); cursor: pointer; padding: 8px 12px; font: inherit; transition: border-color 0.2s, background 0.2s; }
+  .shine b { display: block; font: 600 13px var(--label); letter-spacing: 0.15em; text-transform: uppercase; }
+  .shine span { font-size: 12px; color: var(--mute); }
+  .shine.owned span { color: #7dffb2; }
+  .shine.missing { border-style: dashed; opacity: 0.6; }
+  .shine:hover { border-color: #ffffff55; opacity: 1; }
+  .shine[aria-pressed="true"] { border-color: var(--a); background: #ff6a1a1a; opacity: 1; }
+  .shine.Gold b { color: #f2c14e; } .shine.XDimension b { color: #b29bff; } .shine.Stardust b { color: #bcd6ff; } .shine.Antimatter b { color: #ff5ae8; }
+  .dmg { display: flex; gap: 26px; margin-bottom: 16px; font-size: 14px; color: var(--mute); }
+  .dmg b { display: block; font: 400 22px var(--display); color: var(--ink); }
+  .lore { color: #b8b0a2; font-weight: 300; font-style: italic; margin: 0 0 22px; }
+  .equipNote { display: block; margin-top: 10px; font-size: 13px; color: var(--mute); }
+  .hg-foot { display: flex; align-items: center; gap: 30px; padding: 16px 34px; border-top: 1px solid var(--line); }
+  .hg-foot small { display: block; font: 600 11px var(--label); letter-spacing: 0.3em; text-transform: uppercase; color: var(--mute); }
+  .hg-foot .slot b { font-weight: 500; }
+  .hg-foot .slot.changed b { color: var(--a-hi); }
+  .hg-foot .push { margin-left: auto; }
+  .tabbar { display: flex; align-items: center; gap: 20px; padding: 0 34px; border-bottom: 1px solid var(--line); }
+  .tabbar .tabs { padding: 0; border-bottom: 0; }
+  .steps { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+  .steps-lbl { font: 600 11px var(--label); letter-spacing: 0.3em; text-transform: uppercase; color: var(--mute); margin-right: 4px; }
+  .step { display: flex; align-items: center; gap: 9px; background: none; border: 0; color: var(--mute); cursor: pointer; font: 600 13px var(--label); letter-spacing: 0.2em; text-transform: uppercase; padding: 6px 2px; transition: color 0.2s; }
+  .step i { display: grid; place-items: center; width: 24px; height: 24px; font: 600 12px var(--label); font-style: normal; letter-spacing: 0; border: 1px solid #ffffff33; transform: skewX(-12deg); transition: border-color 0.2s, background 0.2s, color 0.2s; }
+  .step:hover { color: var(--ink); }
+  .step.active { color: var(--ink); }
+  .step.active i { border-color: var(--a); background: #ff6a1a2e; color: var(--a-hi); box-shadow: 0 0 12px #ff6a1a55; }
+  .step.done i { border-color: #7dffb2; color: #7dffb2; font-size: 0; }
+  .step.done i::after { content: '✓'; font-size: 13px; }
+  .steps-line { width: 34px; height: 1px; background: linear-gradient(90deg, #ffffff40, #ffffff10); }
+  .act { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 18px; margin: 0 0 24px; }
+  .act .equipNote { display: block; margin: 0; flex: 1 1 180px; }
+  .hg-foot .status { margin: 0; max-width: 320px; text-shadow: none; }
+  .hg-profile { padding: 34px; max-width: 520px; }
+  .hg-profile label { display: block; font: 600 12px var(--label); letter-spacing: 0.3em; text-transform: uppercase; color: var(--mute); margin-bottom: 8px; }
+  .hg-profile input { width: 100%; font: 400 20px var(--text); color: var(--ink); background: #ffffff0d; border: 1px solid #ffffff26; border-radius: 2px; padding: 12px 14px; outline: none; }
+  .hg-profile input:focus { border-color: var(--a); }
+  .hg-profile .count { display: flex; justify-content: space-between; margin: 8px 0 22px; font-size: 13px; color: var(--mute); }
+  .rar-Abundant { color: #9aa0a6; } .rar-Common { color: #c9c3b8; } .rar-Rare { color: #5aa9ff; } .rar-Epic { color: #c66bff; } .rar-Legendary { color: #ffa53d; } .rar-Mythical { color: #ff4d6d; }
+
+  @media (max-width: 900px) {
+    .hud { left: 20px; top: 20px; } .me { right: 20px; top: 20px; } .feed { left: 20px; bottom: 90px; } .loadout { right: 20px; bottom: 20px; left: 20px; align-items: flex-start; text-align: left; } .dtile { width: 84px; height: 112px; } .dock { gap: 16px; }
+    .hg-body { grid-template-columns: 1fr; overflow-y: auto; } .list { max-height: 34vh; } .detail { grid-template-columns: 1fr; } .preview { min-height: 240px; }
+    .hg-foot { flex-wrap: wrap; gap: 14px; }
+  }
+</style>
+</head></head>
+<body>
+<canvas id="c"></canvas>
+<div class="shade"></div>
+<div id="labels" aria-hidden="true"></div>
+
+<header class="hud">
+  <div class="eyebrow">Now mining</div>
+  <h1 id="pName">–</h1>
+  <div class="meter" role="progressbar" aria-label="Share of the planet destroyed" aria-valuemin="0" aria-valuemax="100" id="meter"><i id="meterFill"></i></div>
+  <div class="nums"><span><b id="destroyed">0</b> of <b id="total">–</b> blocks gone</span><span><b id="crews">0</b> <span id="crewsWord">crews</span> in orbit</span></div>
+</header>
+
+<div class="me" id="meBox">
+  <div class="who-wrap">
+    <button class="who" id="who" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="meMenu"></button>
+    <div class="me-menu" id="meMenu" hidden><button class="link" id="hangarBtn" type="button" hidden>Hangar</button><button class="link" id="signOut" type="button">Sign out</button></div>
+  </div>
+  <button class="btn small" id="connectBtn" type="button" hidden>Connect wallet</button>
+</div>
+
+<div class="feed" id="feed" aria-live="polite"></div>
+
+<div class="loadout" id="loadout" hidden>
+  <div class="dock">
+    <div class="dtiles">
+      <button class="dtile crew" id="tCrew" type="button" aria-label="Your crew"></button>
+      <button class="dtile arms" id="tArms" type="button" aria-label="Your weapon"></button>
+    </div>
+    <div class="plate">
+      <div class="n"><small>Damage</small><b id="loDmg">–</b></div>
+      <div class="fire" id="fireWrap"><span class="burst" aria-hidden="true"></span><button class="btn attack" id="attackBtn" type="button"><span class="cd" id="cdFill"></span><span class="lbl" id="attackLbl">Attack</span></button></div>
+    </div>
+  </div>
+  <div class="status" id="attackStatus" role="status" aria-live="polite"></div>
+</div>
+
+<div class="banner" id="banner" aria-live="assertive"><div class="eyebrow">Hash found</div><h2 id="bannerName"></h2><p id="bannerText"></p></div>
+<div class="busy" id="busy">Loading the current planet…</div>
+
+<dialog class="hangar" id="hangar" aria-labelledby="hgTitle">
+  <div class="hg">
+    <header class="hg-top"><div><div class="eyebrow">Hangar</div><h2 id="hgTitle">Your loadout</h2></div><button class="link" id="hgClose" type="button">Close</button></header>
+    <div class="tabbar">
+      <nav class="tabs" role="tablist" aria-label="Hangar sections">
+      <button role="tab" data-tab="crew" aria-selected="true" type="button">Crew</button>
+      <button role="tab" data-tab="weapons" aria-selected="false" type="button">Weapons</button>
+      <button role="tab" data-tab="profile" aria-selected="false" type="button">Playertag</button>
+    </nav>
+      <div class="steps" id="hgSteps" hidden>
+        <span class="steps-lbl">First loadout</span>
+        <button class="step" data-kind="crew" type="button"><i>1</i>Spacecraft</button>
+        <span class="steps-line" aria-hidden="true"></span>
+        <button class="step" data-kind="arms" type="button"><i>2</i>Weapon</button>
+      </div>
+    </div>
+    <section class="hg-body" id="hgCards">
+      <div class="list-col">
+        <div class="filters"><input type="search" id="hgSearch" placeholder="Search" aria-label="Search cards"><label class="switch"><input type="checkbox" id="hgOwned">Owned only</label></div>
+        <div class="list" id="hgList" role="list"></div>
+      </div>
+      <div class="detail">
+        <div class="preview"><canvas id="hgPreview"></canvas></div>
+        <div class="info">
+          <div class="eyebrow" id="dRar"></div>
+          <h3 id="dName"></h3>
+          <div class="meta" id="dMeta"></div>
+          <div class="shines" id="dShines" role="group" aria-label="Shines"></div>
+          <div class="act"><button class="btn" id="dEquip" type="button">Equip</button><span class="equipNote" id="dNote"></span></div>
+          <div class="dmg"><div>Damage per attack<b id="dDmg">–</b></div><div>Attack · Defense<b id="dAD">–</b></div></div>
+          <p class="lore" id="dLore"></p>
+        </div>
+      </div>
+    </section>
+    <section class="hg-profile" id="hgProfile" hidden>
+      <label for="tagInput">Playertag</label>
+      <input id="tagInput" maxlength="12" autocomplete="off" spellcheck="false">
+      <div class="count"><span>4 to 12 characters</span><span id="tagCount">0 / 12</span></div>
+      <button class="btn" id="tagSave" type="button">Save playertag</button>
+      <div class="status" id="tagStatus" role="status"></div>
+    </section>
+    <footer class="hg-foot" id="hgFoot">
+      <div class="slot" id="slotCrew"><small>Crew</small><b>–</b></div>
+      <div class="slot" id="slotWeapon"><small>Weapon</small><b>–</b></div>
+      <div class="status" id="hgStatus" role="status"></div>
+    </footer>
+  </div>
+</dialog>
+
+<script src="planets-data.js"></script>
+<script src="space.js"></script>
+<script src="weapons-lib.js"></script>
+<script src="aw-data.js"></script>
+<script src="aw-designs.js"></script>
+<script src="hero-gl.js"></script>
+<script>
+'use strict';
+/*
+  Twenty voxel planets (planets-data.js), a fleet you build yourself, and twenty
+  weapons (weapons-lib.js) that every ship can switch between at any time.
+
+  Coherent destruction with mixed weapons
+  - The planet's look depends only on (planet, seed, blocks removed). Block k of the
+    removal sequence is fixed by the seed and the blocks before it, and the sequence
+    is grouped into impact sites, so damage concentrates in craters.
+  - Attack(n) is fired by one ship: the closest to the crater, the next in turn, or the
+    one picked in the HUD. It flies to a firing spot facing the crater and fires volleys
+    with whatever weapon it has at that moment. A volley carries a quota of blocks; every hit of the weapon
+    hands out a share of that quota (by the size of crater it would make), and those
+    blocks are always the next blocks of the sequence. So every weapon digs the same,
+    one crater at a time, while its own projectiles, impacts and coloured glow play
+    on top. Whatever a volley has not delivered when it ends is delivered then, and
+    everything asked for is gone within 3 seconds.
+  - So attacking 100 then 150 equals 250 at once, whatever the fleet looks like, and
+    planet.set(seed, remaining) rebuilds any state directly.
+
+  Fleet
+  - Ships fill orbital shells (6 in the first, 10 in the next, ...). More ships means
+    more shells further out, and the camera pulls back to keep the fleet in view.
+
+  Rendering
+  - Planet: one instanced draw over a compact list of exposed blocks; only the 3
+    camera-facing faces of a block are drawn. Materials (lava, crystal, water, ice,
+    metal, energy) are cheap per-block tweaks; glowing parts feed a bloom pass.
+
+  API
+    planet.attack(n, shipId?)        n more blocks, fired by one ship, gone within 3 s
+    planet.set(seed, remaining)      jump straight to that state
+    planet.select(name)              switch planet (full, untouched)
+    planet.fleet.add(design, weapon, name?) -> id      design: fighter | interceptor | frigate
+    planet.fleet.remove(id) / .setWeapon(id, weapon) / .setName(id, name) / .setAll(weapon) / .list()
+    planet.weapons                   the 20 weapon names
+*/
+const canvas = document.getElementById('c');
+const gl = canvas.getContext('webgl2', { antialias: false, alpha: false, powerPreference: 'high-performance', preserveDrawingBuffer: false });
+if (!gl) {
+  document.body.innerHTML = '<div class="err">WebGL2 is not available in this browser.</div>';
+  throw new Error('no webgl2');
+}
+const { PLANETS } = PlanetKit;
+const { WEAPONS } = WeaponKit;
+const { add, sub, scale, dot, cross, norm, len, rnd, C3, rotateAround } = WeaponKit.util;
+function slerp(a, b, t) {   // unit vectors
+  const c = Math.max(-1, Math.min(1, dot(a, b))), th = Math.acos(c);
+  if (th < 1e-3) return b;
+  if (th > Math.PI - 1e-3) b = norm(add(b, cross(a, [0.3, 1, 0.2])));   // opposite: go round, not through
+  const th2 = Math.acos(Math.max(-1, Math.min(1, dot(a, b)))), s = Math.sin(th2);
+  return norm(add(scale(a, Math.sin((1 - t) * th2) / s), scale(b, Math.sin(t * th2) / s)));
+}
+// weapons are Alien Worlds arms, keyed "Name|Shine"; each is built (and measured) the first time it is used
+const AW_ARMS = Object.fromEntries(AW_DATA.arms.map(a => [a.name, a]));
+const hexOf = c => '#' + c.map(v => Math.round(Math.max(0, Math.min(1, v)) * 255).toString(16).padStart(2, '0')).join('');
+function awWeapon(key) {
+  const [name, shine = 'Stone'] = String(key).split('|'), a = AW_ARMS[name] || AW_ARMS['Standard Sword'];
+  const pal = AWDesign.CLASS_PAL[a.class] || AWDesign.CLASS_PAL.Neutral;
+  return { name: key, heat: hexOf(pal.main), fire: A => AWDesign.ARMS[a.name](A, AWDesign.makeTier(A, a.rarity, shine, a.class)) };
+}
+const lazy = make => new Proxy({}, { get(t, k) { if (typeof k !== 'string') return undefined; if (!(k in t)) t[k] = make(k); return t[k]; }, has: () => true });
+const WEAPON_BY_NAME = lazy(awWeapon);
+const MEASURE = lazy(k => WeaponKit.measure(WEAPON_BY_NAME[k]));
+const DEFAULT_WEAPON = 'Standard Sword|Stone';
+
+const SLOTS = 64;          // frames of removals that can be melting at once
+const MELT = 0.55;         // seconds for a hit block to melt away
+const ATTACK_SECONDS = 3;  // everything asked for is destroyed within this time
+const HALOS = { Magor: [1, 0.42, 0.12], Cinder: [1, 0.42, 0.12], Janus: [1, 0.5, 0.25], Bog: [0.5, 1, 0.3],
+  Brine: [1, 0.6, 0.75], Lantern: [1, 0.9, 0.5], Geode: [0.75, 0.55, 1], Dune: [1, 0.7, 0.4], Halo: [1, 0.8, 0.55] };
+
+// ---------------------------------------------------------------------------
+// shaders
+const FACES = `const vec3 F[7] = vec3[7](
+  vec3( 1, 1, 1), vec3(-1, 1, 1), vec3( 1,-1, 1), vec3( 1, 1,-1),
+  vec3(-1,-1, 1), vec3(-1, 1,-1), vec3( 1,-1,-1));
+float hash(uint x) {
+  x ^= x >> 16; x *= 0x7feb352du; x ^= x >> 15; x *= 0x846ca68bu; x ^= x >> 16;
+  return float(x & 65535u) / 65535.0;
+}`;
+const SURF_OUT = `out vec3 vLocal;
+out highp vec3 vPos;
+flat out vec3 vBase;
+flat out vec3 vEm;
+flat out float vMat;
+flat out float vRnd;
+flat out vec3 vSN;`;
+
+// planet blocks
+const PLANET_VS = `#version 300 es
+precision highp float;
+precision highp int;
+precision highp usampler3D;
+precision highp sampler3D;
+layout(location = 0) in uint aCell;
+layout(location = 1) in uvec4 aCol;    // rgb, material << 5 | glow
+uniform mat4 uMVP;
+uniform vec3 uCam;
+uniform int uN;
+uniform float uT, uMelt;
+uniform usampler3D uMask;       // 0 exposed, 1..64 melting in slot k, 254 buried, 255 empty
+uniform sampler3D uHeatT;       // when this block's crater glow started
+uniform sampler3D uHeatC;       // colour of that glow (the weapon that caused it)
+uniform float uSlotT[${SLOTS}];
+${SURF_OUT}
+${FACES}
+void main() {
+  int id = int(aCell);
+  ivec3 ic = ivec3(id % uN, (id / uN) % uN, id / (uN * uN));
+  uint m = texelFetch(uMask, ic, 0).r;
+  if (m >= 254u) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
+  float fn = float(uN);
+  vec3 g = (vec3(ic) + 0.5) / fn * 2.0 - 1.0;
+  float h = 1.0 / fn;
+  float heat;
+  if (m > 0u) {
+    float k = (uT - uSlotT[int(m) - 1]) / uMelt;
+    if (k >= 1.0) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
+    h *= 1.0 - smoothstep(0.0, 1.0, k);
+    heat = 1.0;
+  } else {
+    float age = uT - texelFetch(uHeatT, ic, 0).r;
+    heat = min(1.0, exp(-age * 1.1) + 0.8 * exp(-age * 9.0));
+  }
+  vec3 s = sign(uCam - g);
+  s += vec3(equal(s, vec3(0.0)));
+  vec3 loc = F[gl_VertexID] * s;
+  vec3 pos = g + loc * h;
+  gl_Position = uMVP * vec4(pos, 1.0);
+  vLocal = loc; vPos = pos; vSN = normalize(g + 1e-6);
+
+  float rnd = hash(uint(id));
+  float mat = float(aCol.a >> 5u);
+  float glow = float(aCol.a & 31u) / 31.0;
+  vec3 base = vec3(aCol.rgb) / 255.0;
+  float lava = 1.0 - min(abs(mat - 1.0), 1.0), energy = 1.0 - min(abs(mat - 6.0), 1.0);
+  // lava: slow churning hot spots plus a per-block flicker; energy: gentle breathing
+  float churn = sin(dot(g, vec3(5.3, 4.1, 6.7)) * 2.5 + uT * 0.7) * sin(dot(g, vec3(-3.7, 6.1, 2.3)) * 2.0 - uT * 0.5);
+  float k = 1.0 + lava * (0.18 * sin(uT * 2.3 + rnd * 6.28) + 0.35 * churn) + energy * 0.15 * sin(uT * 1.5 + rnd * 6.28);
+  vec3 hot = mix(base, vec3(1.0, 0.85, 0.5), lava * max(churn, 0.0) * 0.5);
+  vec3 heatCol = texelFetch(uHeatC, ic, 0).rgb * 1.7;
+  vBase = base;
+  vEm = hot * glow * 1.4 * k + heatCol * heat + vec3(1.2, 1.0, 0.85) * pow(heat, 4.0) * 1.4;
+  vMat = mat;
+  vRnd = rnd;
+}`;
+
+// ships and projectiles: voxels in their own local space
+const VOX_VS = `#version 300 es
+precision highp float;
+precision highp int;
+layout(location = 0) in vec3 aVox;
+layout(location = 1) in uvec4 aCol;
+uniform mat4 uMVP;
+uniform vec3 uCam;    // local space
+uniform float uT;
+${SURF_OUT}
+${FACES}
+void main() {
+  vec3 s = sign(uCam - aVox);
+  s += vec3(equal(s, vec3(0.0)));
+  vec3 loc = F[gl_VertexID] * s;
+  vec3 pos = aVox + loc * 0.5;
+  gl_Position = uMVP * vec4(pos, 1.0);
+  vLocal = loc; vPos = pos; vSN = vec3(0.0, 1.0, 0.0);
+  float rnd = hash(uint(gl_InstanceID) * 7919u + 13u);
+  float mat = float(aCol.a >> 5u);
+  float glow = float(aCol.a & 31u) / 31.0;
+  vec3 base = vec3(aCol.rgb) / 255.0;
+  float energy = 1.0 - min(abs(mat - 6.0), 1.0);
+  vBase = base;
+  vEm = base * glow * 1.5 * (1.0 + energy * 0.25 * sin(uT * 23.0 + rnd * 6.28));
+  vMat = mat;
+  vRnd = rnd;
+}`;
+
+// shared surface shading with the material effects
+const SURF_FS = `#version 300 es
+precision mediump float;
+uniform vec3 uLight;
+uniform highp vec3 uCam;
+uniform highp float uT;
+uniform float uSNw;     // how much the sphere normal softens lighting (planet only)
+in vec3 vLocal;
+in highp vec3 vPos;
+flat in vec3 vBase;
+flat in vec3 vEm;
+flat in float vMat;
+flat in float vRnd;
+flat in vec3 vSN;
+layout(location = 0) out vec4 o;
+layout(location = 1) out vec4 oGlow;
+float is(float m) { return 1.0 - min(abs(vMat - m), 1.0); }
+void main() {
+  // branchless face pick (an if/else chain here fails to compile on ANGLE's D3D11 backend)
+  vec3 a = abs(vLocal);
+  float mx = step(max(a.y, a.z), a.x);
+  float my = (1.0 - mx) * step(a.z, a.y);
+  vec3 m = vec3(mx, my, 1.0 - mx - my);
+  vec3 n = m * sign(vLocal);
+  vec3 tt = a * (1.0 - m);
+  float e = max(max(tt.x, tt.y), tt.z);
+  float fw = fwidth(e);
+  float edgeK = (1.0 - smoothstep(0.08, 0.3, fw)) * smoothstep(0.78 - fw, 1.0 - fw * 0.5, e);
+
+  float crystal = is(2.0), water = is(3.0), ice = is(4.0), metal = is(5.0);
+  float plain = 1.0 - crystal - water - ice - metal;
+
+  vec3 nl = normalize(n * 0.75 + vSN * uSNw);
+  vec3 V = normalize(uCam - vPos);
+  // per-block shimmer on water (a positional wave drew moire rings) and crystal facets
+  vec3 rip = vec3(sin(uT * 1.7 + vRnd * 40.0), sin(uT * 1.3 + vRnd * 57.0), sin(uT * 1.1 + vRnd * 23.0)) * 0.12;
+  vec3 jit = (fract(vec3(vRnd * 13.1, vRnd * 71.7, vRnd * 37.3)) - 0.5) * 0.7;
+  vec3 ne = normalize(nl + rip * water + jit * crystal);
+  float d = max(dot(ne, uLight), 0.0);
+  float ndh = max(dot(ne, normalize(uLight + V)), 0.0);
+  float fres = pow(1.0 - max(dot(ne, V), 0.0), 4.0);
+  float sp = (pow(ndh, 40.0) * 0.2 * plain + pow(ndh, 140.0) * 2.6 * crystal + pow(ndh, 90.0) * 1.8 * water
+            + pow(ndh, 60.0) * 0.9 * ice + pow(ndh, 28.0) * 1.1 * metal) * smoothstep(0.0, 0.15, d);
+
+  vec3 col = vBase * (0.07 + 1.05 * d * (1.0 - 0.45 * metal)) * (1.0 - 0.3 * edgeK)
+           + sp * mix(vec3(1.0), vBase, metal * 0.7)
+           + vec3(0.35, 0.5, 0.7) * fres * water * 0.5 + vec3(0.8, 0.9, 1.0) * fres * ice * 0.35 + vBase * fres * crystal * 0.6;
+  float tw = pow(max(sin(uT * 1.7 + vRnd * 60.0), 0.0), 60.0) * crystal;   // occasional twinkle
+  vec3 em = vEm * (1.0 - 0.2 * edgeK) + vec3(1.0, 0.95, 1.0) * tw * 1.2;
+  col += em;
+  col = col / (1.0 + col * 0.25);
+  o = vec4(pow(col, vec3(0.92)), 1.0);
+  oGlow = vec4(em * 0.5 + sp * (water + crystal) * 0.12, 1.0);
+}`;
+
+const FULL_VS = `#version 300 es
+void main() {
+  vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2)) * 2.0 - 1.0;
+  gl_Position = vec4(p, 0.0, 1.0);
+}`;
+// particles: additive glow, or alpha-blended (smoke, dust, dark matter)
+const PART_VS = `#version 300 es
+precision highp float;
+layout(location = 0) in vec4 aP;   // xyz, size in world units
+layout(location = 1) in vec4 aC;   // rgb, intensity / opacity
+uniform mat4 uVP;
+uniform float uPx;
+out vec4 vC;
+void main() {
+  gl_Position = uVP * vec4(aP.xyz, 1.0);
+  gl_PointSize = clamp(aP.w * uPx / gl_Position.w, 1.0, 256.0);
+  vC = aC;
+}`;
+const PART_ADD_FS = `#version 300 es
+precision mediump float;
+in vec4 vC;
+layout(location = 0) out vec4 o;
+layout(location = 1) out vec4 oGlow;
+void main() {
+  vec2 q = gl_PointCoord * 2.0 - 1.0;
+  float f = max(1.0 - dot(q, q), 0.0);
+  f *= f;
+  vec3 c = vC.rgb * vC.a * f;
+  o = vec4(c, 1.0);
+  oGlow = vec4(c * 0.6, 1.0);
+}`;
+const PART_ALPHA_FS = `#version 300 es
+precision mediump float;
+in vec4 vC;
+layout(location = 0) out vec4 o;
+layout(location = 1) out vec4 oGlow;
+void main() {
+  vec2 q = gl_PointCoord * 2.0 - 1.0;
+  float f = max(1.0 - dot(q, q), 0.0);
+  float a = vC.a * f * f;
+  o = vec4(vC.rgb * a, a);
+  oGlow = vec4(0.0, 0.0, 0.0, a);
+}`;
+
+// bloom
+const DOWN_FS = `#version 300 es
+precision mediump float;
+uniform sampler2D uTex;
+uniform vec2 uSrcTexel;
+uniform vec2 uDst;
+out vec4 o;
+void main() {
+  vec2 uv = gl_FragCoord.xy / uDst;
+  vec2 t = uSrcTexel;
+  o = 0.25 * (texture(uTex, uv + vec2(-t.x, -t.y)) + texture(uTex, uv + vec2(t.x, -t.y))
+            + texture(uTex, uv + vec2(-t.x, t.y)) + texture(uTex, uv + vec2(t.x, t.y)));
+}`;
+const BLUR_FS = `#version 300 es
+precision mediump float;
+uniform sampler2D uTex;
+uniform vec2 uStep;
+uniform vec2 uDst;
+out vec4 o;
+void main() {
+  vec2 uv = gl_FragCoord.xy / uDst;
+  o = texture(uTex, uv) * 0.227
+    + (texture(uTex, uv + uStep * 1.385) + texture(uTex, uv - uStep * 1.385)) * 0.316
+    + (texture(uTex, uv + uStep * 3.231) + texture(uTex, uv - uStep * 3.231)) * 0.070;
+}`;
+const COMP_FS = `#version 300 es
+precision mediump float;
+uniform sampler2D uScene, uB1, uB2;
+uniform vec2 uDst;
+out vec4 o;
+void main() {
+  vec2 uv = gl_FragCoord.xy / uDst;
+  o = vec4(texture(uScene, uv).rgb + texture(uB1, uv).rgb * 1.3 + texture(uB2, uv).rgb * 1.1, 1.0);
+}`;
+
+function compile(type, src) {
+  const s = gl.createShader(type);
+  gl.shaderSource(s, src); gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+  return s;
+}
+function program(vs, fs) {
+  const p = gl.createProgram();
+  gl.attachShader(p, compile(gl.VERTEX_SHADER, vs));
+  gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fs));
+  gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+  const cache = {};
+  const u = new Proxy(cache, { get: (c, n) => (n in c ? c[n] : (c[n] = gl.getUniformLocation(p, n))) });
+  return { p, u };
+}
+const planetProg = program(PLANET_VS, SURF_FS);
+const voxProg = program(VOX_VS, SURF_FS);
+const addProg = program(PART_VS, PART_ADD_FS);
+const alphaProg = program(PART_VS, PART_ALPHA_FS);
+const downProg = program(FULL_VS, DOWN_FS);
+const blurProg = program(FULL_VS, BLUR_FS);
+const compProg = program(FULL_VS, COMP_FS);
+
+const sky = SpaceSky.create(gl);   // galaxies, nebulae, stars (baked once)
+const IDX = new Uint8Array([0,2,6, 0,6,3, 0,3,5, 0,5,1, 0,1,4, 0,4,2]);   // 3 faces around corner 0
+const ibo = gl.createBuffer();
+const emptyVao = gl.createVertexArray();
+
+const timerExt = gl.getExtension('EXT_disjoint_timer_query_webgl2');
+const queries = []; let gpuMs = null;
+
+// ---------------------------------------------------------------------------
+// render targets: MSAA scene with a second "glow" attachment, resolved, then bloom
+const SAMPLES = Math.min(4, gl.getParameter(gl.MAX_SAMPLES));
+let RT = null;
+function tex2d(w, h) {
+  const t = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, t);
+  gl.texStorage2D(gl.TEXTURE_2D, 1, gl.RGBA8, w, h);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  const f = gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, f);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t, 0);
+  return { t, f, w, h };
+}
+function makeTargets(w, h) {
+  if (RT) {
+    for (const k of ['scene', 'glow', 'a1', 'b1', 'a2', 'b2']) { gl.deleteTexture(RT[k].t); gl.deleteFramebuffer(RT[k].f); }
+    for (const rb of RT.rbs) gl.deleteRenderbuffer(rb);
+    gl.deleteFramebuffer(RT.ms);
+  }
+  const ms = gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, ms);
+  const rbs = [gl.RGBA8, gl.RGBA8, gl.DEPTH_COMPONENT24].map((fmt, i) => {
+    const rb = gl.createRenderbuffer();
+    gl.bindRenderbuffer(gl.RENDERBUFFER, rb);
+    gl.renderbufferStorageMultisample(gl.RENDERBUFFER, SAMPLES, fmt, w, h);
+    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, i === 2 ? gl.DEPTH_ATTACHMENT : gl.COLOR_ATTACHMENT0 + i, gl.RENDERBUFFER, rb);
+    return rb;
+  });
+  const q1 = [Math.max(1, w >> 2), Math.max(1, h >> 2)], q2 = [Math.max(1, w >> 3), Math.max(1, h >> 3)];
+  RT = { w, h, ms, rbs, scene: tex2d(w, h), glow: tex2d(w, h), a1: tex2d(...q1), b1: tex2d(...q1), a2: tex2d(...q2), b2: tex2d(...q2) };
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+}
+function pass(prog, target, setup) {
+  gl.bindFramebuffer(gl.FRAMEBUFFER, target ? target.f : null);
+  const w = target ? target.w : canvas.width, h = target ? target.h : canvas.height;
+  gl.viewport(0, 0, w, h);
+  gl.useProgram(prog.p);
+  gl.uniform2f(prog.u.uDst, w, h);
+  setup(prog.u);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+}
+function bindTex(unit, t) { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t); }
+
+// ---------------------------------------------------------------------------
+// planet state
+const EXPOSED = 0, BURIED = 254, EMPTY = 255;
+const intact = m => m === EXPOSED || m === BURIED;
+let pIdx = 0, def = PLANETS[0];
+let R = 62, N = 0, C = 0, NN = 0, total = 0, PRg = 1, EXT = 1;
+let seed = 1;
+let liveR = 6;   // the contract's radius (a tiny placeholder until the chain answers)
+let mask, heat, heatC, maskTex = null, heatTex = null, heatCTex = null;
+let removed = 0, deepest = 1, scanPtr = 0;
+const slots = new Array(SLOTS).fill(null);   // blocks melting, one slot per delivery: { list, t }
+const slotT = new Float32Array(SLOTS).fill(-1e4);
+
+// compact list of blocks to draw (exposed or melting), with their colour
+let cells = new Uint32Array(0), cols = new Uint8Array(0), posOf = new Int32Array(0), listLen = 0, dirtyLo = Infinity, dirtyHi = -1;
+const planetVao = gl.createVertexArray();
+const cellBuf = gl.createBuffer(), colBuf = gl.createBuffer();
+gl.bindVertexArray(planetVao);
+gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
+gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, IDX, gl.STATIC_DRAW);
+gl.bindBuffer(gl.ARRAY_BUFFER, cellBuf);
+gl.enableVertexAttribArray(0);
+gl.vertexAttribIPointer(0, 1, gl.UNSIGNED_INT, 0, 0);
+gl.vertexAttribDivisor(0, 1);
+gl.bindBuffer(gl.ARRAY_BUFFER, colBuf);
+gl.enableVertexAttribArray(1);
+gl.vertexAttribIPointer(1, 4, gl.UNSIGNED_BYTE, 0, 0);
+gl.vertexAttribDivisor(1, 1);
+gl.bindVertexArray(null);
+
+function colourOf(c) {
+  const i = c % N, j = ((c / N) | 0) % N, k = (c / NN) | 0;
+  return PlanetKit.block(def, R, i + 0.5 - C, j + 0.5 - C, k + 0.5 - C, i, j, k) || [128, 128, 128, 0];
+}
+function listAdd(c) {
+  posOf[c] = listLen; cells[listLen] = c;
+  cols.set(colourOf(c), listLen * 4);
+  dirtyLo = Math.min(dirtyLo, listLen); dirtyHi = Math.max(dirtyHi, listLen);
+  listLen++;
+}
+function listRemove(c) {
+  const p = posOf[c];
+  if (p < 0) return;
+  const lastPos = --listLen, last = cells[lastPos];
+  cells[p] = last; posOf[last] = p; posOf[c] = -1;
+  cols.copyWithin(p * 4, lastPos * 4, lastPos * 4 + 4);
+  dirtyLo = Math.min(dirtyLo, p); dirtyHi = Math.max(dirtyHi, p);
+}
+function uploadList() {
+  if (dirtyHi < dirtyLo) return;
+  const hi = Math.min(dirtyHi, listLen - 1);
+  if (hi >= dirtyLo) {
+    gl.bindBuffer(gl.ARRAY_BUFFER, cellBuf);
+    gl.bufferSubData(gl.ARRAY_BUFFER, dirtyLo * 4, cells, dirtyLo, hi - dirtyLo + 1);
+    gl.bindBuffer(gl.ARRAY_BUFFER, colBuf);
+    gl.bufferSubData(gl.ARRAY_BUFFER, dirtyLo * 4, cols, dirtyLo * 4, (hi - dirtyLo + 1) * 4);
+  }
+  dirtyLo = Infinity; dirtyHi = -1;
+}
+
+function makeTex(old, internal, format, type, data) {
+  if (old) gl.deleteTexture(old);
+  const t = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_3D, t);
+  gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texImage3D(gl.TEXTURE_3D, 0, internal, N, N, N, 0, format, type, data);
+  return t;
+}
+// fresh, untouched planet
+function build() {
+  def = PLANETS[pIdx];
+  R = liveR;
+  EXT = def.ext || 1.02;
+  N = 2 * Math.ceil(R * EXT) + 2; C = N / 2; NN = N * N;
+  PRg = 2 * R / N;
+  mask = new Uint8Array(N * NN).fill(EMPTY);
+  total = 0;
+  const lim = (R * EXT + 0.5) ** 2;
+  for (let k = 0; k < N; k++) for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    const x = i + 0.5 - C, y = j + 0.5 - C, z = k + 0.5 - C;
+    if (x * x + y * y + z * z > lim) continue;
+    if (!PlanetKit.inside(def, R, x, y, z)) continue;
+    if (def.hollow) {   // caves and cavities, only checked inside the band where they can be
+      const f = Math.sqrt(x * x + y * y + z * z) / R;
+      if (f >= def.hollow[0] && f <= def.hollow[1] && !PlanetKit.block(def, R, x, y, z, i, j, k)) continue;
+    }
+    mask[i + j * N + k * NN] = BURIED; total++;
+  }
+  cells = new Uint32Array(total); cols = new Uint8Array(total * 4);
+  posOf = new Int32Array(N * NN).fill(-1); listLen = 0;
+  for (let c = 0; c < mask.length; c++) {
+    if (mask[c] !== BURIED) continue;
+    const i = c % N, j = ((c / N) | 0) % N, k = (c / NN) | 0;
+    if (i === 0 || j === 0 || k === 0 || i === N - 1 || j === N - 1 || k === N - 1 ||
+        mask[c - 1] === EMPTY || mask[c + 1] === EMPTY || mask[c - N] === EMPTY || mask[c + N] === EMPTY ||
+        mask[c - NN] === EMPTY || mask[c + NN] === EMPTY) { mask[c] = EXPOSED; listAdd(c); }
+  }
+  gl.bindBuffer(gl.ARRAY_BUFFER, cellBuf); gl.bufferData(gl.ARRAY_BUFFER, cells.byteLength, gl.DYNAMIC_DRAW);
+  gl.bindBuffer(gl.ARRAY_BUFFER, colBuf); gl.bufferData(gl.ARRAY_BUFFER, cols.byteLength, gl.DYNAMIC_DRAW);
+  heat = new Float32Array(N * NN).fill(-1e4);
+  heatC = new Uint8Array(N * NN * 4);
+  gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+  gl.activeTexture(gl.TEXTURE2);
+  heatCTex = makeTex(heatCTex, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, heatC);
+  gl.activeTexture(gl.TEXTURE1);
+  heatTex = makeTex(heatTex, gl.R32F, gl.RED, gl.FLOAT, heat);
+  gl.activeTexture(gl.TEXTURE0);
+  maskTex = makeTex(maskTex, gl.R8UI, gl.RED_INTEGER, gl.UNSIGNED_BYTE, mask);
+  slots.fill(null); slotT.fill(-1e4);
+  removed = 0; deepest = 1; scanPtr = 0;
+  sites.length = 0;
+  dMask = []; dHeat = [];
+  resetVolleys();
+}
+
+function uploadAll() {
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_3D, maskTex);
+  gl.texSubImage3D(gl.TEXTURE_3D, 0, 0, 0, 0, N, N, N, gl.RED_INTEGER, gl.UNSIGNED_BYTE, mask);
+}
+// upload the sub-box [x0..x1] x [y0..y1] x [z0..z1]: packed into a contiguous scratch
+// buffer first (strided 3D uploads hit a slow path in ANGLE)
+const scratch = {};
+function uploadBox(b, unit, tex, data, format, type, comps = 1) {
+  const w = b[3] - b[0] + 1, h = b[4] - b[1] + 1, d = b[5] - b[2] + 1, row = w * comps;
+  const key = data.constructor.name;
+  if (!scratch[key] || scratch[key].length < w * h * d * comps) scratch[key] = new data.constructor(Math.max(w * h * d * comps, 4096));
+  const out = scratch[key];
+  let o = 0;
+  for (let z = b[2]; z <= b[5]; z++) for (let y = b[1]; y <= b[4]; y++) {
+    const src = ((z * N + y) * N + b[0]) * comps;
+    out.set(data.subarray(src, src + row), o);
+    o += row;
+  }
+  gl.activeTexture(unit);
+  gl.bindTexture(gl.TEXTURE_3D, tex);
+  gl.texSubImage3D(gl.TEXTURE_3D, 0, b[0], b[1], b[2], w, h, d, format, type, out, 0);
+  gl.activeTexture(gl.TEXTURE0);
+}
+// changes are collected into one box per texture and uploaded once per frame
+// (a big fleet makes many hits per frame; uploading each separately stalls)
+// Craters at different sites stay separate boxes; nearby ones merge.
+let dMask = [], dHeat = [];
+const vol = b => (b[3] - b[0] + 1) * (b[4] - b[1] + 1) * (b[5] - b[2] + 1);
+const union = (a, b) => [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.min(a[2], b[2]), Math.max(a[3], b[3]), Math.max(a[4], b[4]), Math.max(a[5], b[5])];
+function addBox(list, b) {
+  for (let i = 0; i < list.length; i++) {
+    const u = union(list[i], b);
+    if (vol(u) <= (vol(list[i]) + vol(b)) * 1.6 + 512) { list[i] = u; return; }
+  }
+  if (list.length < 12) list.push(b.slice());
+  else list[list.length - 1] = union(list[list.length - 1], b);
+}
+const maskBox = b => addBox(dMask, b);
+const heatBox = b => addBox(dHeat, b);
+function flushUploads() {
+  for (const b of dMask) uploadBox(b, gl.TEXTURE0, maskTex, mask, gl.RED_INTEGER, gl.UNSIGNED_BYTE);
+  for (const b of dHeat) {
+    uploadBox(b, gl.TEXTURE1, heatTex, heat, gl.RED, gl.FLOAT);
+    uploadBox(b, gl.TEXTURE2, heatCTex, heatC, gl.RGBA, gl.UNSIGNED_BYTE, 4);
+  }
+  dMask = []; dHeat = [];
+}
+const cellBox = (c, r) => {
+  const x = c % N, y = ((c / N) | 0) % N, z = (c / NN) | 0;
+  return [Math.max(0, x - r), Math.max(0, y - r), Math.max(0, z - r),
+          Math.min(N - 1, x + r), Math.min(N - 1, y + r), Math.min(N - 1, z + r)];
+};
+
+// ---------------------------------------------------------------------------
+// deterministic removal sequence
+function rng(a, b) {   // mulberry32 seeded from two integers (+ planet and size)
+  let s = (Math.imul(a ^ 0x5bd1e995, 0x9E3779B1) ^ Math.imul(b + 1, 0x85EBCA77) ^ Math.imul(R + pIdx * 977, 0xC2B2AE3D)) >>> 0;
+  return () => {
+    s = (s + 0x6D2B79F5) >>> 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function randDir(r) {
+  const z = 2 * r() - 1, ph = 2 * Math.PI * r(), s = Math.sqrt(1 - z * z);
+  return [s * Math.cos(ph), s * Math.sin(ph), z];
+}
+function basis(d) {
+  const t = Math.abs(d[0]) < 0.9 ? [1, 0, 0] : [0, 1, 0];
+  const u = norm(cross(d, t));
+  return [u, cross(d, u)];
+}
+// impact sites: consecutive runs of removals aimed at one area
+const sites = [];   // { start, end, d, u, v, sigma }
+function siteFor(k) {
+  while (!sites.length || sites[sites.length - 1].end <= k) {
+    const j = sites.length, r = rng(seed, 0x7f000000 + j);
+    const start = j ? sites[j - 1].end : 0;
+    // craters big enough that one attack (about 50 to 150 blocks) usually digs a single crater
+    const size = Math.max(120, Math.round(total * (0.004 + 0.006 * r())));
+    const d = randDir(r), [u, v] = basis(d);
+    sites.push({ start, end: start + size, d, u, v, sigma: R * (0.07 + 0.2 * r()) });
+  }
+  let lo = 0, hi = sites.length - 1;
+  while (lo < hi) { const mid = (lo + hi) >> 1; if (sites[mid].end <= k) lo = mid + 1; else hi = mid; }
+  return sites[lo];
+}
+// a ray from outside the planet along -d, offset (ox, oy) in the (u, v) plane: first intact cell, or -1
+function shoot(d, u, v, ox, oy) {
+  let x = C + d[0] * (R + 1.5) + u[0] * ox + v[0] * oy;
+  let y = C + d[1] * (R + 1.5) + u[1] * ox + v[1] * oy;
+  let z = C + d[2] * (R + 1.5) + u[2] * ox + v[2] * oy;
+  for (let s = 0, steps = 2 * R + 4; s < steps; s++) {
+    const i = Math.floor(x), j = Math.floor(y), k = Math.floor(z);
+    if (i >= 0 && j >= 0 && k >= 0 && i < N && j < N && k < N) {
+      const c = i + j * N + k * NN;
+      if (intact(mask[c])) return c;
+    }
+    x -= d[0] * 0.75; y -= d[1] * 0.75; z -= d[2] * 0.75;
+  }
+  return -1;
+}
+// removal number k (depends only on seed, planet and the removals before it)
+function pickBlock(k) {
+  const site = siteFor(k), r = rng(seed, k);
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const s = site.sigma * (1 + attempt * 0.6);
+    const rad = Math.sqrt(-2 * Math.log(1 - r())) * s, th = 2 * Math.PI * r();
+    const c = shoot(site.d, site.u, site.v, rad * Math.cos(th), rad * Math.sin(th));
+    if (c >= 0) return c;
+  }
+  for (let attempt = 0; attempt < 10; attempt++) {   // area shot clean through: anywhere
+    const d = randDir(r), [u, v] = basis(d);
+    const c = shoot(d, u, v, (r() * 2 - 1) * R, (r() * 2 - 1) * R);
+    if (c >= 0) return c;
+  }
+  while (scanPtr < mask.length && !intact(mask[scanPtr])) scanPtr++;   // last few scattered blocks (and rings)
+  return scanPtr < mask.length ? scanPtr : -1;
+}
+function removeBlock(c, val) {
+  mask[c] = val;
+  if (val === EMPTY) listRemove(c);
+  const i = c % N, j = ((c / N) | 0) % N, k = (c / NN) | 0;
+  if (i > 0 && mask[c - 1] === BURIED) { mask[c - 1] = EXPOSED; listAdd(c - 1); }
+  if (i < N - 1 && mask[c + 1] === BURIED) { mask[c + 1] = EXPOSED; listAdd(c + 1); }
+  if (j > 0 && mask[c - N] === BURIED) { mask[c - N] = EXPOSED; listAdd(c - N); }
+  if (j < N - 1 && mask[c + N] === BURIED) { mask[c + N] = EXPOSED; listAdd(c + N); }
+  if (k > 0 && mask[c - NN] === BURIED) { mask[c - NN] = EXPOSED; listAdd(c - NN); }
+  if (k < N - 1 && mask[c + NN] === BURIED) { mask[c + NN] = EXPOSED; listAdd(c + NN); }
+  deepest = Math.min(deepest, Math.hypot(i + 0.5 - C, j + 0.5 - C, k + 0.5 - C) / R);
+  removed++;
+}
+
+// glow around a removed block in the weapon's colour, fading out by ~2.5 cells
+// (farther cells get an earlier start time, so they are already partly cooled)
+const GLOW = 2.5;
+function warm(c, col, radius = GLOW) {
+  const b = cellBox(c, Math.ceil(radius));
+  const x = c % N, y = ((c / N) | 0) % N, z = (c / NN) | 0;
+  const cr = Math.round(col[0] * 255), cg = Math.round(col[1] * 255), cb = Math.round(col[2] * 255);
+  for (let k = b[2]; k <= b[5]; k++) for (let j = b[1]; j <= b[4]; j++) for (let i = b[0]; i <= b[3]; i++) {
+    const d = Math.hypot(i - x, j - y, k - z);
+    if (d >= radius) continue;
+    const u = Math.min(1, (radius - d) / Math.max(1, radius - 1)), f = u * u * (3 - 2 * u);
+    const idx = i + j * N + k * NN, t = clock - (1 - f) * 2.5;
+    if (t > heat[idx]) { heat[idx] = t; heatC[idx * 4] = cr; heatC[idx * 4 + 1] = cg; heatC[idx * 4 + 2] = cb; }
+  }
+  return b;
+}
+
+function retire(s) {
+  const list = slots[s].list;
+  for (const c of list) { mask[c] = EMPTY; listRemove(c); maskBox(cellBox(c, 0)); }
+  slots[s] = null;
+  slotT[s] = -1e4;
+}
+// remove the next `count` blocks of the sequence now; they share one melt slot.
+// Returns the cells removed.
+function fireBatch(count, col = [1, 0.42, 0.1]) {
+  let s = slots.indexOf(null);
+  if (s < 0) {
+    s = 0;
+    for (let i = 1; i < SLOTS; i++) if (slots[i].t < slots[s].t) s = i;
+    retire(s);
+  }
+  const list = [];
+  for (let n = 0; n < count && removed < total; n++) {
+    const c = pickBlock(removed);
+    if (c < 0) break;
+    removeBlock(c, s + 1);
+    list.push(c);
+    heatBox(warm(c, col));
+    maskBox(cellBox(c, 1));
+  }
+  slots[s] = { list, t: clock };
+  slotT[s] = clock;
+  return list;
+}
+
+// ---------------------------------------------------------------------------
+// planet space <-> world space (the planet spins about y)
+const toWorld = v => { const c = Math.cos(spin), s = Math.sin(spin); return [c * v[0] + s * v[2], v[1], -s * v[0] + c * v[2]]; };
+const toPlanet = v => { const c = Math.cos(spin), s = Math.sin(spin); return [c * v[0] - s * v[2], v[1], s * v[0] + c * v[2]]; };
+// the surface point the planet currently shows in a direction (planet space), as a live target
+function surfaceTarget(dir) {
+  let g = [0, 0, 0];
+  for (let r = R * Math.min(EXT, 1.05) + 1.5; r > 0; r -= 0.75) {
+    const i = Math.floor(C + dir[0] * r), j = Math.floor(C + dir[1] * r), k = Math.floor(C + dir[2] * r);
+    if (i < 0 || j < 0 || k < 0 || i >= N || j >= N || k >= N) continue;
+    const m = mask[i + j * N + k * NN];
+    if (m !== EMPTY) { g = [(i + 0.5) / N * 2 - 1, (j + 0.5) / N * 2 - 1, (k + 0.5) / N * 2 - 1]; break; }
+  }
+  return { dir, g, get p() { return toWorld(this.g); }, get n() { return toWorld(this.dir); } };
+}
+const cellOfG = g => {
+  const i = Math.floor((g[0] + 1) / 2 * N), j = Math.floor((g[1] + 1) / 2 * N), k = Math.floor((g[2] + 1) / 2 * N);
+  return i >= 0 && j >= 0 && k >= 0 && i < N && j < N && k < N ? i + j * N + k * NN : -1;
+};
+
+// ---------------------------------------------------------------------------
+// the fleet
+const DESIGNS = { fighter: 'Fighter', interceptor: 'Interceptor', frigate: 'Frigate' };
+const ACCENTS = ['#ff8a3d', '#3fd0ff', '#e8e2d0', '#ff5ae0', '#7dff8a', '#ffd36b', '#b18cff', '#ff4a4a'];
+const MATID = { ...PlanetKit.MATERIALS, phase: PlanetKit.MATERIALS.energy };
+function voxModel(fill) {
+  const map = new Map();
+  const put = (x, y, z, col, mat = 'none', glow = 0) => map.set(x + ',' + y + ',' + z, [x, y, z, WeaponKit.util.hex(col), MATID[mat], Math.round(glow * 31)]);
+  fill(put);
+  const v = [...map.values()];
+  const pos = new Int8Array(v.length * 3), col = new Uint8Array(v.length * 4);
+  let zmax = -99;
+  v.forEach(([x, y, z, c, m, g], i) => { pos.set([x, y, z], i * 3); col.set([c[0], c[1], c[2], (m << 5) | g], i * 4); zmax = Math.max(zmax, z); });
+  const vao = gl.createVertexArray();
+  gl.bindVertexArray(vao);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
+  const b1 = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b1); gl.bufferData(gl.ARRAY_BUFFER, pos, gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.BYTE, false, 0, 0); gl.vertexAttribDivisor(0, 1);
+  const b2 = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b2); gl.bufferData(gl.ARRAY_BUFFER, col, gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(1); gl.vertexAttribIPointer(1, 4, gl.UNSIGNED_BYTE, 0, 0); gl.vertexAttribDivisor(1, 1);
+  gl.bindVertexArray(null);
+  return { vao, count: v.length, nose: zmax + 1 };
+}
+const MODELS = Object.fromEntries(Object.entries(WeaponKit.MODEL_DEFS).map(([k, f]) => [k, voxModel(f)]));
+const shipModels = new Map();
+// an Alien Worlds crew ship (aw-designs.js) as a game model; crew = { name, rarity, element, variant, shine }
+function awShipModel(crew) {
+  const key = 'aw:' + [crew.name, crew.rarity, crew.element, crew.variant || 0, crew.shine].join('|');
+  if (!shipModels.has(key)) {
+    const ship = AWDesign.buildShip(crew.name, crew.rarity, crew.element || 'Neutral', crew.variant || 0, crew.shine || 'Stone')
+      || AWDesign.buildShip('Stealth Mercenary', 'Abundant', 'Neutral', 0, 'Stone');
+    const m = voxModel(put => { for (const v of ship.vox) put(v.x, v.y, v.z, v.col, v.role === 'engine' ? 'energy' : (v.mat || 'none'), v.role === 'engine' ? 0.9 : (v.glow || 0)); });
+    m.radius = ship.radius; m.level = ship.L; m.top = Math.max(...ship.vox.map(v => v.y)) + 1;
+    shipModels.set(key, m);
+  }
+  return shipModels.get(key);
+}
+const shipModel = (design, accent) => {
+  const key = design + accent;
+  if (!shipModels.has(key)) shipModels.set(key, voxModel(WeaponKit.SHIP_DEFS[design](accent)));
+  return shipModels.get(key);
+};
+
+const fleet = [];
+let nextShipId = 1;
+const shellOf = k => { let L = 0, cap = 6; while (k >= cap) { k -= cap; L++; cap += 4; } return L; };
+const orbitScale = () => PRg * Math.max(1, EXT * 0.95);
+function relayout() {
+  fleet.forEach((s, k) => { s.shell = shellOf(k); s.rTarget = (1.6 + 0.42 * s.shell) * orbitScale(); });
+  syncLabels();
+}
+// default player names: call signs, numbered if taken
+const CALLSIGNS = ['Nova', 'Vex', 'Kestrel', 'Rook', 'Ember', 'Halcyon', 'Quasar', 'Mako', 'Talon', 'Wraith', 'Comet', 'Juno',
+  'Orion', 'Viper', 'Sable', 'Pulsar', 'Drift', 'Echo', 'Lumen', 'Brisk', 'Cinder', 'Nyx', 'Atlas', 'Zephyr', 'Raptor',
+  'Vega', 'Onyx', 'Flint', 'Siren', 'Rift', 'Ion', 'Blaze', 'Corvus', 'Lyra', 'Bolt', 'Nebula', 'Ghost', 'Aurora', 'Saber', 'Tycho'];
+function defaultName(id) {
+  const base = CALLSIGNS[(id * 7 + 3) % CALLSIGNS.length];
+  const taken = new Set(fleet.map(x => x.name));
+  if (!taken.has(base)) return base;
+  for (let k = 2; ; k++) if (!taken.has(base + ' ' + k)) return base + ' ' + k;
+}
+const cleanName = n => String(n ?? '').replace(/\s+/g, ' ').trim().slice(0, 24);
+function addShip(design = 'fighter', weapon = WEAPONS[0].name, name) {
+  if (!DESIGNS[design]) design = 'fighter';
+  if (!WEAPON_BY_NAME[weapon]) weapon = WEAPONS[0].name;
+  const id = nextShipId++;
+  let a = Math.imul(id, 0x9E3779B1) >>> 0;
+  const r = () => ((a = (Math.imul(a ^ (a >>> 15), 0x2c1b3c6d) + 0x6D2B79F5) >>> 0) / 4294967296);
+  const accent = ACCENTS[(id - 1) % ACCENTS.length];
+  const s = {
+    id, design, weapon, accent, model: shipModel(design, accent), name: cleanName(name) || defaultName(id),
+    incl: (r() - 0.5) * 1.5, node: r() * Math.PI * 2, angle: r() * Math.PI * 2, dirSign: r() < 0.5 ? -1 : 1,
+    rCur: 0, rTarget: 0, shell: 0, firing: 0,
+    queued: 0, aimDir: null,     // volleys waiting to fire, crater it is attacking (planet space)
+    mode: 'orbit', vel: [0, 0, 0], roll: 0,   // 'orbit' = on its circle; 'fly' = steering to a firing spot or back
+    pos: [0, 0, 0], fwd: [0, 0, 1], up: [0, 1, 0], right: [1, 0, 0],
+  };
+  fleet.push(s);
+  relayout();
+  s.rCur = s.rTarget * 1.8;   // fly in from further out
+  return id;
+}
+// o = { tag, color, crew: {name, rarity, element, variant, shine}, weapon: "Name|Shine", wallet }
+function addPlayerShip(o) {
+  const id = nextShipId++;
+  let a = Math.imul(id, 0x9E3779B1) >>> 0;
+  const r = () => ((a = (Math.imul(a ^ (a >>> 15), 0x2c1b3c6d) + 0x6D2B79F5) >>> 0) / 4294967296);
+  const model = awShipModel(o.crew);
+  const s = {
+    id, design: 'aw', weapon: o.weapon || DEFAULT_WEAPON, accent: o.color || '#ff8a3d', model, name: cleanName(o.tag) || o.wallet || 'Crew',
+    wallet: o.wallet, me: !!o.me, sizeK: 6 / Math.max(6, model.radius) * (1.35 + 0.12 * (model.level || 0)),
+    incl: (r() - 0.5) * 1.5, node: r() * Math.PI * 2, angle: r() * Math.PI * 2, dirSign: r() < 0.5 ? -1 : 1,
+    rCur: 0, rTarget: 0, shell: 0, firing: 0, queued: 0, aimDir: null,
+    mode: 'orbit', vel: [0, 0, 0], roll: 0, pos: [0, 0, 0], fwd: [0, 0, 1], up: [0, 1, 0], right: [1, 0, 0],
+  };
+  fleet.push(s);
+  relayout();
+  s.rCur = s.rTarget * 1.8;   // fly in from further out
+  return id;
+}
+function removeShip(id) {
+  const i = fleet.findIndex(s => s.id === id);
+  if (i < 0) return false;
+  fleet.splice(i, 1);
+  relayout();
+  return true;
+}
+function setName(id, name) {
+  const s = fleet.find(x => x.id === id), n = cleanName(name);
+  if (!s || !n) return false;
+  s.name = n;
+  if (s.label) s.label.firstChild.nextSibling.textContent = n;
+  saveFleet();
+  return true;
+}
+function setWeapon(id, weapon) {
+  const s = fleet.find(x => x.id === id);
+  if (!s || !WEAPON_BY_NAME[weapon]) return false;
+  s.weapon = weapon;
+  saveFleet();
+  return true;
+}
+function shipPose(s) {
+  const nose = add(s.pos, scale(s.fwd, s.model.nose * shipScale(s)));
+  return { pos: s.pos, fwd: s.fwd, up: s.up, right: s.right, nose };
+}
+const shipScale = s => 0.019 * Math.sqrt(Math.max(1, dist / 5.4)) * (s.sizeK || (s.design === 'frigate' ? 1.1 : 1));
+
+// remember the fleet between visits (per browser; harmless if storage is blocked)
+const FLEET_KEY = 'mbp.fleet.v1';
+let restoring = false;
+function saveFleet() { /* the live fleet comes from the chain */ }
+function loadFleet() {
+  try { const v = JSON.parse(localStorage.getItem(FLEET_KEY)); return Array.isArray(v) ? v : null; } catch (e) { return null; }
+}
+
+// ---------------------------------------------------------------------------
+// volleys: each ship fires its current weapon; every hit delivers sequence blocks
+const world = WeaponKit.createWorld({
+  particleCap: 5000,
+  surface: dir => surfaceTarget(dir),
+  dirOf: p => norm(toPlanet(p)),
+  surfaceRadius: () => PRg,
+  aim: tag => tag.aim,
+  ship(tag, i) {
+    if (tag.ship && fleet.includes(tag.ship)) tag.pose = shipPose(tag.ship);
+    return tag.pose;
+  },
+  // keep a weapon's scatter inside the crater the sequence is digging
+  spread: tag => Math.max(0.3, Math.min(1, tag.sigmaAng / 0.25)),
+  crater(tag, tg, o) {
+    if (!tag || tag.left <= 0) return;
+    const w = WeaponKit.craterWeight(o);
+    if (!w) return;
+    const x = tag.quota * w / tag.wEst;
+    const k = Math.min(tag.left, Math.floor(x) + (Math.random() < x % 1 ? 1 : 0));
+    if (k > 0) deliver(tag, k);
+  },
+  scorch(tag, tg, r) {
+    const c = cellOfG(tg.g || toPlanet(tg.p));
+    if (c < 0) return;
+    heatBox(warm(c, tag.heat, Math.max(1.5, r * R / 18 * 0.8)));
+  },
+  done: tag => finish(tag),
+});
+const volleys = [];        // scheduled: { at, shipId, quota, deadline }
+const active = new Set();  // volleys being fired
+let attackCursor = 0;
+function deliver(tag, k) {
+  fireBatch(k, tag.heat);
+  tag.left -= k;
+}
+function finish(tag) {
+  if (!active.has(tag)) return;
+  if (tag.left > 0) deliver(tag, tag.left);
+  if (tag.ship) tag.ship.firing = Math.max(0, tag.ship.firing - 1);
+  active.delete(tag);
+}
+function resetVolleys() {
+  volleys.length = 0;
+  for (const s of fleet) { s.queued = 0; s.firing = 0; }
+  active.clear();
+  world.clear();
+}
+const pending = () => volleys.reduce((s, v) => s + v.quota, 0) + [...active].reduce((s, t) => s + t.left, 0);
+
+const MOVE = 1.0;   // time budgeted for a ship to fly from its orbit to its firing spot
+// which ship fires an attack: the one closest to the crater (idle ships first), the next in
+// turn, or a ship chosen in the HUD / passed to planet.attack(n, shipId)
+function pickAttacker(siteDir, shipId) {
+  if (shipId != null) return fleet.find(x => x.id === +shipId) || null;
+  const choice = 'closest';
+  if (choice !== 'closest' && choice !== 'next') { const f = fleet.find(x => x.id === +choice); if (f) return f; }
+  if (choice === 'next') { const ship = fleet[attackCursor % fleet.length]; attackCursor = (attackCursor + 1) % fleet.length; return ship; }
+  const n = toWorld(siteDir);
+  let best = null, bestScore = -Infinity;
+  for (const x of fleet) {
+    const score = dot(norm(x.pos), n) - (x.queued + x.firing > 0 ? 1.5 : 0);
+    if (score > bestScore) { bestScore = score; best = x; }
+  }
+  return best;
+}
+function schedule(n, shipId) {
+  const already = pending();
+  n = Math.min(n, total - removed - already);
+  if (n <= 0) return;
+  const deadline = simT + ATTACK_SECONDS;
+  // split the blocks at crater boundaries (sequence index removed + already pending onwards),
+  // so every volley digs exactly one crater and is aimed at it
+  const chunks = [];
+  for (let k = removed + already, left = n; left > 0;) {
+    const s = siteFor(Math.min(k, Math.max(0, total - 1))), take = Math.max(1, Math.min(left, s.end - k));
+    chunks.push({ k, n: take, d: s.d });
+    k += take; left -= take;
+  }
+  const ship = fleet.length ? pickAttacker(chunks[0].d, shipId) : null;
+  if (!ship) { for (const c of chunks) volleys.push({ at: simT, shipId: null, quota: c.n, deadline, kStart: c.k }); return; }
+  // first fly into position, then fire; long weapons get less time to move so they still land in time
+  const m = MEASURE[ship.weapon];
+  const move = Math.max(0.3, Math.min(MOVE, ATTACK_SECONDS - m.last - 0.15));
+  const window = Math.max(0, ATTACK_SECONDS - m.last - 0.15 - move);
+  const plan = [];
+  for (const c of chunks) {
+    const v = Math.max(1, Math.min(Math.ceil(c.n / 60), 1 + Math.floor(window / 0.6)));
+    for (let j = 0, kk = c.k; j < v; j++) { const q = Math.floor(c.n / v) + (j < c.n % v ? 1 : 0); plan.push({ quota: q, kStart: kk }); kk += q; }
+  }
+  if (!ship.queued && !ship.firing) ship.aimDir = chunks[0].d;
+  plan.forEach((p, j) => {
+    const at = simT + move + (plan.length === 1 ? 0 : window * j / (plan.length - 1));
+    volleys.push({ at, shipId: ship.id, quota: p.quota, deadline, kStart: p.kStart });
+    ship.queued++;
+  });
+  volleys.sort((a, b) => a.at - b.at);
+}
+// would a straight shot from a to b pass through the planet? (anything deeper than the
+// target itself counts as rock; the crater it is aimed into is open)
+function clearShot(a, b) {
+  const rs = Math.min(PRg * 0.95, len(b) * 0.99), d = sub(b, a), L2 = dot(d, d);
+  const t = Math.max(0, Math.min(1, -dot(a, d) / L2));
+  if (t > 0.97) return true;
+  return len(add(a, scale(d, t))) >= rs;
+}
+// returns false while the volley has to wait (ship still moving into a clear position)
+function launchVolley(v) {
+  let ship = fleet.find(s => s.id === v.shipId);
+  if (!ship && fleet.length) {   // its ship was removed: hand it to another, which first gets into position
+    ship = fleet[(Math.random() * fleet.length) | 0];
+    v.shipId = ship.id; ship.queued++;
+    v.at = simT + MOVE * 0.6;
+    return false;
+  }
+  // the crater this volley's blocks belong to; it fires only once every block before them is gone,
+  // so its hits take exactly its own blocks (and never another crater's)
+  const site = siteFor(Math.min(v.kStart ?? removed, Math.max(0, total - 1)));
+  if (v.kStart != null && removed < v.kStart) { if (simT >= v.deadline - 0.1) v.deadline += 0.5; return false; }
+  if (!ship) {   // no fleet at all: the blocks still go
+    const list = fireBatch(v.quota);
+    if (list.length) { const e = world.api(null), t = surfaceTarget(site.d); e.flash(t.p, 0.3, [1, 0.85, 0.6]); }
+    return true;
+  }
+  // aim at the crater the sequence is actually digging now. A ship still firing at another
+  // crater finishes that first; then it moves over and fires once nothing is in the way.
+  const late = simT >= v.deadline - 0.1;
+  const busyElsewhere = ship.firing > 0 && ship.aimDir && dot(ship.aimDir, site.d) < 0.9;
+  if (busyElsewhere && !late) return false;
+  if (!busyElsewhere) ship.aimDir = site.d;
+  const aim = surfaceTarget(site.d);
+  if (!clearShot(shipPose(ship).nose, aim.p)) {
+    if (!late) return false;
+    // still no clear shot: give the ship more time to fly round (the live screen replays the
+    // chain, so a hit may land a few seconds later; it must never look like it came from nowhere)
+    if ((v.extended = (v.extended || 0) + 1) <= 4) { v.deadline += 1.5; return false; }
+    // it really cannot get a line: the blocks go quietly, with no flash that looks like a hit
+    ship.queued = Math.max(0, ship.queued - 1);
+    fireBatch(v.quota, C3(WEAPON_BY_NAME[ship.weapon].heat));
+    return true;
+  }
+  ship.queued = Math.max(0, ship.queued - 1);
+  const wp = WEAPON_BY_NAME[ship.weapon];
+  const tag = {
+    ship, pose: shipPose(ship), quota: v.quota, left: v.quota, wEst: MEASURE[wp.name].weight,
+    heat: C3(wp.heat), deadline: v.deadline, items: 0, aim, sigmaAng: site.sigma / R,
+  };
+  active.add(tag);
+  ship.firing++;
+  wp.fire(world.api(tag));
+  if (!tag.items) finish(tag);
+  return true;
+}
+
+// ---------------------------------------------------------------------------
+// public API
+let simT = 0;   // real-time clock for ships and weapons (stops with Pause)
+const planet = {
+  attack(n = 1, shipId) { schedule(Math.max(0, n | 0), shipId); },
+  set(newSeed, remaining) {
+    seed = newSeed >>> 0;
+    build();
+    const keep = Number.isNaN(+remaining) ? total : Math.floor(Math.max(0, Math.min(total, +remaining)));
+    const target = total - keep;
+    while (removed < target) { const c = pickBlock(removed); if (c < 0) break; removeBlock(c, EMPTY); }
+    uploadAll();
+    relayout();   // orbits depend on the planet's size
+  },
+  // the contract's planet: name, radius and seed, with this share of its blocks still standing
+  load(name, radius, newSeed, shareLeft) {
+    const i = PLANETS.findIndex(p => p.name.toLowerCase() === String(name).toLowerCase());
+    if (i < 0) return false;
+    pIdx = i; liveR = Math.max(4, radius | 0); showPlanetInfo();
+    seed = newSeed >>> 0;
+    build();
+    const target = total - Math.round(total * Math.max(0, Math.min(1, shareLeft)));
+    while (removed < target) { const c = pickBlock(removed); if (c < 0) break; removeBlock(c, EMPTY); }
+    uploadAll(); relayout();
+    return true;
+  },
+  select(name) {
+    const i = PLANETS.findIndex(p => p.name.toLowerCase() === String(name).toLowerCase());
+    if (i < 0) return false;
+    pIdx = i;
+    showPlanetInfo();
+    planet.set(seed, Infinity);
+    return true;
+  },
+  fleet: {
+    add: (design, weapon, name) => addShip(design, weapon, name),
+    remove: id => removeShip(id),
+    setWeapon: (id, weapon) => setWeapon(id, weapon),
+    setName: (id, name) => { const ok = setName(id, name); if (ok) renderFleetList(); return ok; },
+    setAll(weapon) { if (!WEAPON_BY_NAME[weapon]) return false; for (const s of fleet) s.weapon = weapon; renderFleetList(); saveFleet(); return true; },
+    list: () => fleet.map(s => ({ id: s.id, name: s.name, design: s.design, weapon: s.weapon, wallet: s.wallet })),
+    addPlayer: o => addPlayerShip(o),
+  },
+  weapons: WEAPONS.map(w => w.name),
+  get total() { return total; },
+  get remaining() { return total - removed - pending(); },
+  get seed() { return seed; },
+  get name() { return def.name; },
+};
+window.planet = planet;
+
+// ---------------------------------------------------------------------------
+// matrices (column-major)
+function mul(a, b) {
+  const o = new Float32Array(16);
+  for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++)
+    o[c*4+r] = a[r]*b[c*4] + a[4+r]*b[c*4+1] + a[8+r]*b[c*4+2] + a[12+r]*b[c*4+3];
+  return o;
+}
+function perspective(fovy, aspect, near, far) {
+  const f = 1 / Math.tan(fovy / 2), nf = 1 / (near - far);
+  return new Float32Array([f/aspect,0,0,0, 0,f,0,0, 0,0,(far+near)*nf,-1, 0,0,2*far*near*nf,0]);
+}
+function rotX(t) { const c = Math.cos(t), s = Math.sin(t); return new Float32Array([1,0,0,0, 0,c,s,0, 0,-s,c,0, 0,0,0,1]); }
+function rotY(t) { const c = Math.cos(t), s = Math.sin(t); return new Float32Array([c,0,-s,0, 0,1,0,0, s,0,c,0, 0,0,0,1]); }
+function translate(x, y, z) { return new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, x,y,z,1]); }
+const toObj = (m, v) => [0,1,2].map(i => m[i*4]*v[0] + m[i*4+1]*v[1] + m[i*4+2]*v[2]);       // R^T v
+const toView = (m, v) => [0,1,2].map(i => m[i]*v[0] + m[4+i]*v[1] + m[8+i]*v[2]);             // R v
+// model matrix from an orthonormal frame, uniform scale and position
+const frameM = (r, u, f, s, p) => new Float32Array([r[0]*s,r[1]*s,r[2]*s,0, u[0]*s,u[1]*s,u[2]*s,0, f[0]*s,f[1]*s,f[2]*s,0, p[0],p[1],p[2],1]);
+
+// ---------------------------------------------------------------------------
+// UI and view
+let yaw = 0.5, pitch = 0.32, dist = 5.4, userZoom = 1;
+let paused = false, clock = 0, spin = 0;
+let dragging = false, lx = 0, ly = 0;
+
+const $ = id => document.getElementById(id);
+const fmt = n => Number(n).toLocaleString('en-US');
+const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+function showPlanetInfo() {
+  const d = PLANETS[pIdx];
+  $('pName').textContent = d.name;
+}
+// player names floating above the ships
+const elLabels = $('labels');
+function syncLabels() {
+  const ids = new Set(fleet.map(x => x.id));
+  for (const el of [...elLabels.children]) if (!ids.has(+el.dataset.id)) el.remove();
+  for (const x of fleet) {
+    if (!x.label) {
+      x.label = document.createElement('div');
+      x.label.className = 'tag' + (x.me ? ' mine' : '');
+      x.label.dataset.id = x.id;
+      x.label.innerHTML = '<i></i><span></span>';
+      x.label.firstChild.style.background = x.accent;
+      elLabels.appendChild(x.label);
+    }
+    x.label.firstChild.nextSibling.textContent = x.name;
+    x.label.dataset.weapon = String(x.weapon).split('|')[0];
+  }
+}
+function renderFleetList() { syncLabels(); }
+// place each name just above its ship; dim it while the planet is in front
+function placeLabels(VP, camW) {
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  for (const x of fleet) {
+    if (!x.label) continue;
+    // anchor the name just above the top of the ship (its model's radius at the size it is drawn)
+    const top = add(x.pos, [0, (x.model.top || x.model.radius || 7) * shipScale(x) + 0.01, 0]);
+    const p = top, cw = VP[3] * p[0] + VP[7] * p[1] + VP[11] * p[2] + VP[15];
+    if (cw <= 0.01) { x.label.style.transform = 'translate(-9999px,0)'; continue; }
+    const cx = (VP[0] * p[0] + VP[4] * p[1] + VP[8] * p[2] + VP[12]) / cw, cy = (VP[1] * p[0] + VP[5] * p[1] + VP[9] * p[2] + VP[13]) / cw;
+    const sx = (cx * 0.5 + 0.5) * w, sy = (0.5 - cy * 0.5) * h - 6;
+    x.label.style.transform = `translate(${sx.toFixed(1)}px, ${sy.toFixed(1)}px) translate(-50%, -100%)`;
+    const d = sub(p, camW), L2 = dot(d, d), t = Math.max(0, Math.min(1, -dot(camW, d) / L2));
+    const hidden = t < 1 && len(add(camW, scale(d, t))) < PRg && t * Math.sqrt(L2) < Math.sqrt(L2) - 0.05;
+    x.label.classList.toggle('hidden', hidden);
+    x.label.classList.toggle('firing', !!x.firing);
+  }
+}
+// boot: a tiny placeholder planet; the screen stays dark until the chain's planet is loaded
+pIdx = 0; def = PLANETS[0];
+showPlanetInfo();
+planet.set(1, Infinity);
+
+canvas.addEventListener('pointerdown', e => { dragging = true; lx = e.clientX; ly = e.clientY; canvas.setPointerCapture(e.pointerId); canvas.classList.add('drag'); });
+canvas.addEventListener('pointermove', e => {
+  if (!dragging) return;
+  yaw += (e.clientX - lx) * 0.006;
+  pitch = Math.max(-1.45, Math.min(1.45, pitch + (e.clientY - ly) * 0.006));
+  lx = e.clientX; ly = e.clientY;
+});
+const endDrag = () => { dragging = false; canvas.classList.remove('drag'); };
+canvas.addEventListener('pointerup', endDrag);
+canvas.addEventListener('pointercancel', endDrag);
+canvas.addEventListener('wheel', e => { e.preventDefault(); userZoom = Math.max(0.35, Math.min(3, userZoom * Math.exp(e.deltaY * 0.001))); }, { passive: false });
+
+function resize() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+  const w = Math.round(canvas.clientWidth * dpr), h = Math.round(canvas.clientHeight * dpr);
+  if (canvas.width !== w || canvas.height !== h || !RT) { canvas.width = w; canvas.height = h; makeTargets(w, h); }
+}
+
+const LW = norm([0.75, 0.35, 0.55]);   // sun direction, world space
+let last = performance.now(), frames = 0, acc = 0, listTick = 0;
+
+function drawVox(model, r, u, f, s, p, VP, camW) {
+  const dc = sub(camW, p);
+  gl.uniformMatrix4fv(voxProg.u.uMVP, false, mul(VP, frameM(r, u, f, s, p)));
+  gl.uniform3fv(voxProg.u.uCam, [dot(r, dc) / s, dot(u, dc) / s, dot(f, dc) / s]);
+  gl.uniform3fv(voxProg.u.uLight, [dot(r, LW), dot(u, LW), dot(f, LW)]);
+  gl.bindVertexArray(model.vao);
+  gl.drawElementsInstanced(gl.TRIANGLES, 18, gl.UNSIGNED_BYTE, 0, model.count);
+}
+const pData = new Float32Array(5000 * 8);
+const partVao = gl.createVertexArray(), partBuf = gl.createBuffer();
+gl.bindVertexArray(partVao);
+gl.bindBuffer(gl.ARRAY_BUFFER, partBuf);
+gl.bufferData(gl.ARRAY_BUFFER, pData.byteLength, gl.DYNAMIC_DRAW);
+gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 4, gl.FLOAT, false, 32, 0);
+gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 4, gl.FLOAT, false, 32, 16);
+gl.bindVertexArray(null);
+function drawParticles(list, prog, VP, pxScale, gain = 1) {
+  if (!list.length) return;
+  let n = 0;
+  for (const p of list) {
+    if (n >= 5000) break;
+    const k = 1 - p.age / p.life, o = n * 8;
+    const tw = p.twinkle ? 0.4 + 0.6 * Math.abs(Math.sin(simT * 20 + p.size * 900)) : 1;
+    pData[o] = p.p[0]; pData[o + 1] = p.p[1]; pData[o + 2] = p.p[2];
+    pData[o + 3] = p.size * (p.grow ? 1 + p.grow * (1 - k) : 0.6 + 0.4 * k);
+    pData[o + 4] = p.c[0]; pData[o + 5] = p.c[1]; pData[o + 6] = p.c[2]; pData[o + 7] = p.i * (p.grow ? k : k * tw * gain);
+    n++;
+  }
+  gl.bindBuffer(gl.ARRAY_BUFFER, partBuf);
+  gl.bufferData(gl.ARRAY_BUFFER, pData.byteLength, gl.STREAM_DRAW);   // fresh storage: no wait on last frame's draw
+  gl.bufferSubData(gl.ARRAY_BUFFER, 0, pData, 0, n * 8);
+  gl.useProgram(prog.p);
+  gl.uniformMatrix4fv(prog.u.uVP, false, VP);
+  gl.uniform1f(prog.u.uPx, pxScale);
+  gl.bindVertexArray(partVao);
+  gl.drawArrays(gl.POINTS, 0, n);
+}
+
+// Ships fly like ships: with volleys to fire they leave the orbit and steer to their own spot
+// in a ring above the crater, accelerating along their heading, banking into turns and
+// curving around the planet; they ease to a stop, turn to face the crater and fire.
+// Afterwards they steer back and merge into their orbit.
+// (top speed is kept low enough that the turn needed to follow the planet's curve, v²/r, stays
+// within maxAcc; otherwise ships drift outward while crossing)
+const FLY = { maxSpeed: 2.6, maxAcc: 8, slow: 0.7, turn: 4, response: 4 };
+function flyShip(s, orbPos, orbFwd, orbVel, dt) {
+  const engaged = s.queued + s.firing > 0 && s.aimDir;
+  if (engaged && s.mode === 'orbit') { s.mode = 'fly'; s.pos = orbPos; s.vel = orbVel; }
+  let wantFwd, acc = [0, 0, 0];
+  if (s.mode === 'orbit') {
+    s.pos = orbPos; s.vel = orbVel; wantFwd = orbFwd;
+  } else {
+    let goal, goalVel = [0, 0, 0], face = null;
+    if (engaged) {
+      const n = toWorld(s.aimDir), [bu, bv] = basis(n);
+      const ph = s.id * 2.39996, kk = 0.25 + 0.4 * ((s.id * 0.6180339) % 1);   // each ship its own spot in the ring
+      goal = scale(norm(add(n, add(scale(bu, Math.cos(ph) * kk), scale(bv, Math.sin(ph) * kk)))), s.rCur);
+      face = surfaceTarget(s.aimDir).p;
+    } else { goal = orbPos; goalVel = orbVel; }
+    // fly along the curve of the planet towards the goal (never through it), holding the
+    // shell's height; only the last stretch is a straight line in
+    const pd = norm(s.pos), gd = norm(goal), r = len(s.pos), rG = len(goal);
+    const ang = Math.acos(Math.max(-1, Math.min(1, dot(pd, gd))));
+    const remaining = ang * r + Math.abs(rG - r);
+    const speed = FLY.maxSpeed * Math.min(1, remaining / FLY.slow);   // full speed until close, then ease off
+    let desired;
+    if (ang > 0.15) {
+      let along = sub(gd, scale(pd, dot(gd, pd)));
+      along = len(along) > 1e-4 ? norm(along) : basis(pd)[0];
+      desired = add(scale(along, speed), scale(pd, (rG - r) * 2.5));
+    } else {
+      const to = sub(goal, s.pos), d = len(to);
+      desired = d > 1e-6 ? scale(to, speed / d) : [0, 0, 0];
+    }
+    desired = add(desired, goalVel);   // keep pace with a moving goal (the orbit)
+    acc = scale(sub(desired, s.vel), FLY.response);   // reach the wanted velocity in ~1/response s (damps the height hold)
+    const al = len(acc), lim = FLY.maxAcc;
+    if (al > lim) acc = scale(acc, lim / al);
+    if (dt > 0) {
+      s.vel = add(s.vel, scale(acc, dt));
+      s.pos = add(s.pos, scale(s.vel, dt));
+      // keep clear of the surface
+      const rKeep = PRg * 1.3, r = len(s.pos);
+      if (r < rKeep) {
+        const out = scale(s.pos, 1 / r);
+        s.pos = scale(out, rKeep);
+        const vin = dot(s.vel, out);
+        if (vin < 0) s.vel = sub(s.vel, scale(out, vin));
+      }
+    }
+    const dGoal = len(sub(goal, s.pos)), sp = len(s.vel);
+    if (!engaged && dGoal < 0.03) s.mode = 'orbit';   // merged back into the orbit
+    // nose along the flight path; near the firing spot, turn to face the crater
+    if (face && dGoal < 0.45) wantFwd = norm(sub(face, s.pos));
+    else wantFwd = sp > 0.05 ? scale(s.vel, 1 / sp) : s.fwd;
+  }
+  // turn towards the wanted heading at a limited rate
+  const c = Math.max(-1, Math.min(1, dot(s.fwd, wantFwd))), th = Math.acos(c);
+  s.fwd = th < 1e-4 || dt === 0 ? (dt === 0 ? s.fwd : wantFwd) : slerp(s.fwd, wantFwd, Math.min(1, FLY.turn * dt / th));
+  // up = away from the planet, banked into the turn
+  const out = norm(s.pos);
+  let up = sub(out, scale(s.fwd, dot(out, s.fwd)));
+  if (len(up) < 0.2) up = sub(s.up, scale(s.fwd, dot(s.up, s.fwd)));   // looking straight down: keep the last roll
+  up = norm(up);
+  const right = cross(up, s.fwd);
+  const rollWant = Math.max(-0.7, Math.min(0.7, -dot(acc, right) * 0.12));
+  if (dt > 0) s.roll += (rollWant - s.roll) * Math.min(1, dt * 4);
+  s.up = norm(add(scale(up, Math.cos(s.roll)), scale(right, Math.sin(s.roll))));
+  s.right = cross(s.up, s.fwd);
+}
+
+function frame(now) {
+  const rawDt = Math.min(1, (now - last) / 1000), dt = Math.min(0.1, rawDt); last = now;
+  resize();
+  if (!paused) {
+    clock += dt;
+    simT += rawDt;   // real time, so attacks finish within 3 s even when frames are slow
+    spin += dt * 0.07;
+  }
+  const W = canvas.width, H = canvas.height, aspect = W / H;
+
+  // ---- ships on their shells; the camera backs off as the fleet grows
+  let outer = 1.6 * orbitScale();
+  for (const s of fleet) {
+    s.rCur += (s.rTarget - s.rCur) * Math.min(1, dt * 1.2);
+    const speed = 0.3 * Math.pow(1.6 * orbitScale() / Math.max(s.rCur, 0.1), 1.5) * s.dirSign;
+    if (!paused) s.angle += speed * rawDt;
+    const ci = Math.cos(s.incl), si = Math.sin(s.incl), cn = Math.cos(s.node), sn = Math.sin(s.node);
+    const orb = p => { const y = p[2] * si, z = p[2] * ci; return [p[0] * cn - z * sn, y, p[0] * sn + z * cn]; };
+    const orbPos = orb([Math.cos(s.angle) * s.rCur, 0, Math.sin(s.angle) * s.rCur]);
+    const orbFwd = norm(orb([-Math.sin(s.angle) * s.dirSign, 0, Math.cos(s.angle) * s.dirSign]));
+    const orbVel = scale(orbFwd, Math.abs(speed) * s.rCur);
+    flyShip(s, orbPos, orbFwd, orbVel, paused ? 0 : dt);
+    outer = Math.max(outer, s.rTarget);
+  }
+  const distBase = Math.max(5.4, outer * 2.5 + 0.8);
+  dist += (distBase * userZoom - dist) * Math.min(1, dt * 2.5);
+
+  // ---- volleys: launch what is due, enforce deadlines, play the effects
+  if (!paused) {
+    for (let i = 0; i < volleys.length && volleys[i].at <= simT; i++) if (launchVolley(volleys[i])) volleys.splice(i--, 1);
+    for (const tag of active) if (simT >= tag.deadline && tag.left > 0) deliver(tag, tag.left);
+    world.update(rawDt);
+  }
+  for (let s = 0; s < SLOTS; s++) if (slots[s] && clock - slots[s].t > MELT) retire(s);
+
+  // ---- matrices
+  const fovy = aspect < 1 ? 2 * Math.atan(Math.tan(0.39) / aspect) : 0.78;
+  const fy = 1 / Math.tan(fovy / 2);
+  const far = Math.max(60, dist * 4);
+  const P = perspective(fovy, aspect, 0.05, far);
+  const viewRot = mul(rotX(pitch), rotY(yaw));
+  const VP = mul(P, mul(translate(0, 0, -dist), viewRot));
+  const camW = toObj(viewRot, [0, 0, dist]);
+  const Spin = rotY(spin);
+
+  let q = null;
+  if (timerExt && queries.length < 4) { q = gl.createQuery(); gl.beginQuery(timerExt.TIME_ELAPSED_EXT, q); }
+
+  // ---- scene into the MSAA target (colour + glow)
+  gl.bindFramebuffer(gl.FRAMEBUFFER, RT.ms);
+  gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1]);
+  gl.viewport(0, 0, W, H);
+  gl.clearBufferfv(gl.COLOR, 0, [0, 0, 0, 1]);
+  gl.clearBufferfv(gl.COLOR, 1, [0, 0, 0, 1]);
+  gl.clearBufferfv(gl.DEPTH, 0, [1]);
+
+  gl.disable(gl.DEPTH_TEST);
+  const sunV = toView(viewRot, LW);
+  sky.draw(mul(P, viewRot), 2 * Math.tan(fovy / 2) / H, clock, {
+    c: [W / 2, H / 2],
+    rad: PRg * fy / Math.sqrt(Math.max(1e-4, dist * dist - PRg * PRg)) * H / 2,
+    atm: total ? 0.35 + 0.65 * (total - removed) / total : 0,
+    tint: HALOS[def.name] || [0.45, 0.65, 1.0],
+    sun: norm([sunV[0], sunV[1], 0]).slice(0, 2),
+  });
+  gl.enable(gl.DEPTH_TEST);
+  gl.depthFunc(gl.LESS);
+
+  // planet
+  uploadList();
+  flushUploads();
+  gl.useProgram(planetProg.p);
+  gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_3D, heatCTex);
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_3D, heatTex);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_3D, maskTex);
+  let u = planetProg.u;
+  gl.uniform1i(u.uMask, 0); gl.uniform1i(u.uHeatT, 1); gl.uniform1i(u.uHeatC, 2);
+  gl.uniformMatrix4fv(u.uMVP, false, mul(VP, Spin));
+  gl.uniform3fv(u.uCam, toObj(Spin, camW));
+  gl.uniform3fv(u.uLight, toObj(Spin, LW));
+  gl.uniform1i(u.uN, N);
+  gl.uniform1f(u.uT, clock);
+  gl.uniform1f(u.uMelt, MELT);
+  gl.uniform1fv(u.uSlotT, slotT);
+  gl.uniform1f(u.uSNw, 0.75);
+  gl.bindVertexArray(planetVao);
+  gl.drawElementsInstanced(gl.TRIANGLES, 18, gl.UNSIGNED_BYTE, 0, listLen);
+
+  // ships and projectiles
+  gl.useProgram(voxProg.p);
+  u = voxProg.u;
+  gl.uniform1f(u.uT, clock);
+  gl.uniform1f(u.uSNw, 0);
+  for (const s of fleet) drawVox(s.model, s.right, s.up, s.fwd, shipScale(s), s.pos, VP, camW);
+  for (const pj of world.W.projs) {
+    if (!pj.model) continue;
+    let f = pj.phase === 'dig' ? scale(pj.to.n, -1) : pj.dir;
+    const up0 = Math.abs(f[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0];
+    let r = norm(cross(up0, f)), up = cross(f, r);
+    if (pj.spin) { const a = simT * pj.spin; r = rotateAround(r, f, a); up = rotateAround(up, f, a); }
+    drawVox(MODELS[pj.model], r, up, f, pj.scale || 0.02, pj.pos, VP, camW);
+  }
+
+  // particles: smoke first (alpha), then glow (additive); neither writes depth
+  gl.depthMask(false);
+  gl.enable(gl.BLEND);
+  gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+  drawParticles(world.W.alpha, alphaProg, VP, fy * H / 2);
+  gl.blendFunc(gl.ONE, gl.ONE);
+  // many overlapping volleys would wash the scene out white: dim the glow a little as they pile up
+  drawParticles(world.W.add, addProg, VP, fy * H / 2, 1 / Math.sqrt(Math.max(1, active.size / 6)));
+  gl.disable(gl.BLEND);
+  gl.depthMask(true);
+
+  // ---- resolve MSAA, bloom, composite
+  gl.disable(gl.DEPTH_TEST);
+  gl.bindFramebuffer(gl.READ_FRAMEBUFFER, RT.ms);
+  gl.readBuffer(gl.COLOR_ATTACHMENT0);
+  gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, RT.scene.f);
+  gl.blitFramebuffer(0, 0, W, H, 0, 0, W, H, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+  gl.readBuffer(gl.COLOR_ATTACHMENT1);
+  gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, RT.glow.f);
+  gl.blitFramebuffer(0, 0, W, H, 0, 0, W, H, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+  gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
+  gl.bindVertexArray(emptyVao);
+  pass(downProg, RT.a1, u => { bindTex(0, RT.glow.t); gl.uniform1i(u.uTex, 0); gl.uniform2f(u.uSrcTexel, 1 / W, 1 / H); });
+  pass(blurProg, RT.b1, u => { bindTex(0, RT.a1.t); gl.uniform1i(u.uTex, 0); gl.uniform2f(u.uStep, 1 / RT.a1.w, 0); });
+  pass(blurProg, RT.a1, u => { bindTex(0, RT.b1.t); gl.uniform1i(u.uTex, 0); gl.uniform2f(u.uStep, 0, 1 / RT.a1.h); });
+  pass(downProg, RT.a2, u => { bindTex(0, RT.a1.t); gl.uniform1i(u.uTex, 0); gl.uniform2f(u.uSrcTexel, 0.5 / RT.a1.w, 0.5 / RT.a1.h); });
+  pass(blurProg, RT.b2, u => { bindTex(0, RT.a2.t); gl.uniform1i(u.uTex, 0); gl.uniform2f(u.uStep, 1 / RT.a2.w, 0); });
+  pass(blurProg, RT.a2, u => { bindTex(0, RT.b2.t); gl.uniform1i(u.uTex, 0); gl.uniform2f(u.uStep, 0, 1 / RT.a2.h); });
+  pass(compProg, null, u => {
+    bindTex(0, RT.scene.t); bindTex(1, RT.a1.t); bindTex(2, RT.a2.t);
+    gl.uniform1i(u.uScene, 0); gl.uniform1i(u.uB1, 1); gl.uniform1i(u.uB2, 2);
+  });
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindVertexArray(null);
+
+  if (q) { gl.endQuery(timerExt.TIME_ELAPSED_EXT); queries.push(q); }
+  if (timerExt && queries.length) {
+    const head = queries[0];
+    if (gl.getQueryParameter(head, gl.QUERY_RESULT_AVAILABLE)) {
+      if (!gl.getParameter(timerExt.GPU_DISJOINT_EXT)) gpuMs = gl.getQueryParameter(head, gl.QUERY_RESULT) / 1e6;
+      gl.deleteQuery(head); queries.shift();
+    }
+  }
+
+  placeLabels(VP, camW);
+  if (window.onFrame) window.onFrame(rawDt);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+<script type="module" src="play.js"></script>
+</body>
+</html>

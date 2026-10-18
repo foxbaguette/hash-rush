@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Hash Rush</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Michroma&family=Barlow+Condensed:wght@600;800&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="ui.css">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: #000; color: var(--ink); font: 15px/1.55 Barlow, system-ui, sans-serif; }
+  a { text-decoration: none; color: inherit; cursor: pointer; }
+  .hero { position: relative; height: 100vh; min-height: 620px; max-height: 1000px; }
+  .hero canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .hero::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, #000c 0%, #0006 34%, #0000 58%), linear-gradient(#0000 78%, #000 100%); pointer-events: none; }
+  .copy { position: absolute; z-index: 2; left: 64px; bottom: 12vh; max-width: 560px; }
+  .ep { font: 600 13px 'Barlow Condensed'; letter-spacing: 0.4em; color: var(--a); text-transform: uppercase; }
+  h1 { font: 400 clamp(40px, 5.6vw, 84px)/1.04 Michroma; letter-spacing: 0.02em; margin: 14px 0 16px; text-shadow: 0 4px 30px #000; }
+  .copy .btn { margin-top: 30px; }
+  .copy p { color: #cfc6b6; font-size: 19px; font-weight: 300; margin: 0; text-shadow: 0 2px 12px #000; max-width: 460px; }
+  /* sign-up */
+  dialog { width: min(440px, calc(100vw - 32px)); padding: 0; border: 1px solid #ffffff1f; border-radius: 4px; background: #0b0908f2; color: var(--ink); box-shadow: 0 30px 80px #000c; }
+  dialog::backdrop { background: #000a; backdrop-filter: blur(3px); }
+  .su { padding: 34px 34px 30px; }
+  .su h2 { font: 400 26px/1.2 Michroma; letter-spacing: 0.02em; margin: 12px 0 10px; }
+  .su p { margin: 0 0 22px; color: #b8b0a2; font-weight: 300; }
+  .su label { display: block; font: 600 12px 'Barlow Condensed'; letter-spacing: 0.3em; text-transform: uppercase; color: var(--mute); margin-bottom: 8px; }
+  .su input { width: 100%; font: 400 20px Barlow; color: var(--ink); background: #ffffff0d; border: 1px solid #ffffff26; border-radius: 2px; padding: 12px 14px; outline: none; }
+  .su input:focus { border-color: var(--a); }
+  .su .count { display: flex; justify-content: space-between; margin-top: 8px; font-size: 13px; color: var(--mute); }
+  .su .row { display: flex; align-items: center; gap: 18px; margin-top: 6px; }
+  .su .link { margin-top: 30px; }
+  @media (max-width: 860px) {
+    .copy { left: 20px; right: 20px; bottom: 60px; }
+  }
+</style>
+</head>
+<body>
+  <div class="hero"><canvas id="hero"></canvas>
+    <div class="copy"><div class="ep">Now playing</div><h1>The Hash Rush</h1><p>Join a crew. Fly your ship. Take the world apart before anyone else does.</p><button class="btn" id="join" type="button">Join the rush</button><div class="status" id="status" role="status" aria-live="polite"></div></div>
+  </div>
+
+  <dialog id="signup" aria-labelledby="suTitle">
+    <form class="su" id="suForm" method="dialog" novalidate>
+      <div class="ep">Crew registration</div>
+      <h2 id="suTitle">Choose your playertag</h2>
+      <p>This is the name every other crew will see next to your ship. You can change it later.</p>
+      <label for="tag">Playertag</label>
+      <input id="tag" name="tag" maxlength="12" autocomplete="off" spellcheck="false" required>
+      <div class="count"><span id="tagHint">4 to 12 characters</span><span id="tagCount">0 / 12</span></div>
+      <div class="row"><button class="btn" id="suGo" type="submit">Sign up</button><button class="link" id="suCancel" type="button">Cancel</button></div>
+      <div class="status" id="suStatus" role="status" aria-live="polite"></div>
+    </form>
+  </dialog>
+
+<script src="planets-data.js"></script>
+<script src="space.js"></script>
+<script src="weapons-lib.js"></script>
+<script src="aw-data.js"></script>
+<script src="aw-designs.js"></script>
+<script src="hero-gl.js"></script>
+<script>
+'use strict';
+const H = HeroGL;
+// Magor, the half-destroyed lava planet from the original Hash Rush, with a lava mine
+// (turned so Magor's sandy anomaly faces away from the camera; the mine direction is turned with it)
+const P = { name: 'Magor', pos: [1.15, -0.05, -2.0], size: 1.05, R: 40, pit: { dir: [-0.549, -0.293, -0.783], r: 12, depth: 14 } };
+// the fleet: [crew, rarity, element, shine, size, orbit radius, height]
+const fleet = [['Khaured Commander', 'Legendary', 'Fire', 'Stone', 0.27, 1.75, 0.05], ['Alien Bat (Horrors)', 'Epic', 'Nature', 'XDimension', 0.2, 1.5, 0.45],
+  ['Robot Supersoldier', 'Rare', 'Metal', 'XDimension', 0.18, 1.6, -0.4], ['Wise Ancient One', 'Rare', 'Air', 'Stone', 0.17, 1.45, -0.1],
+  ['Nordic Warrior', 'Common', 'Fire', 'Stardust', 0.15, 1.55, 0.3], ['LG Soldier', 'Common', 'Neutral', 'Stone', 0.15, 1.4, -0.5]];
+// real weapons from the game; a ship only fires when it has a clear line to the mine
+// each shot hits a different spot, one the firing ship and the viewer can both see
+const arm = H.armory({ planet: P, every: 1.8, spread: 0.02, nearScale: 0.35, scatter: 1.05, viewDir: [-0.6 - 1.15, 0.3 + 0.05, 2.4 + 2.0],
+  list: [['Infernal Axe', 'Gold'], ['Magori Revolver', 'Stone'], ['Storm Edge Sword', 'Stardust'], ['Randomizer Bow', 'Gold'], ['Galatic Fireblade', 'Stone']] });
+H.view(document.getElementById('hero'), t => { P.yaw = 2.068 + 0.15 * Math.sin(t * 0.12);
+  return { eye: [-0.6, 0.3, 2.4], at: [0.45, -0.05, -0.9], fov: 0.66, halo: [1, 0.6, 0.35], planets: [P], fx: [arm],
+    ships: fleet.map(([name, rarity, element, shine, size, r, y], i) => { const a = t * (0.16 + i * 0.012) + i * 0.79;
+      const pos = [P.pos[0] + Math.cos(a) * r, P.pos[1] + y, P.pos[2] + Math.sin(a) * r];
+      // fly along the orbit, nose turned in toward the planet
+      const fwd = [-Math.sin(a) * 0.75 - Math.cos(a) * 0.6, -y * 0.3, Math.cos(a) * 0.75 - Math.sin(a) * 0.6];
+      return { name, rarity, element, shine, pos, fwd, size }; }) }; },
+  (ctx, o) => {
+    H.plumes(ctx, o, 'rgba(255,150,80,A)', 0.9);
+  });
+</script>
+<script type="module">
+// Join the rush: connect a wallet (Anchor or WAX Cloud Wallet); new players pick a playertag
+// and sign up on planetmining, then everyone goes straight to the current planet
+import * as chain from './chain.js';
+const $ = id => document.getElementById(id);
+const join = $('join'), status = $('status'), dlg = $('signup'), tag = $('tag'), go = $('suGo'), suStatus = $('suStatus');
+const say = (el, text, err = false) => { el.textContent = text; el.classList.toggle('err', err); };
+const bytes = s => new TextEncoder().encode(s).length;   // the contract counts bytes
+const toGame = () => { location.href = 'play.html'; };
+join.addEventListener('pointerenter', chain.preloadWallet, { once: true });
+
+join.addEventListener('click', async () => {
+  join.disabled = true; say(status, 'Connecting your wallet…');
+  try {
+    const account = await chain.login();
+    if (!account) { say(status, ''); return; }
+    say(status, 'Checking your crew record…');
+    if (await chain.getPlayer(account)) { say(status, 'Welcome back. Loading the planet…'); toGame(); return; }
+    say(status, '');
+    tag.value = ''; updateCount(); say(suStatus, '');
+    dlg.showModal(); tag.focus();
+  } catch (err) {
+    say(status, chain.friendlyError(err), true);
+  } finally { join.disabled = false; }
+});
+
+function updateCount() {
+  const n = bytes(tag.value.trim());
+  $('tagCount').textContent = n + ' / 12';
+  go.disabled = n < 4 || n > 12;
+}
+tag.addEventListener('input', updateCount);
+$('suCancel').addEventListener('click', () => dlg.close());
+
+$('suForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const playertag = tag.value.trim(), n = bytes(playertag);
+  if (n < 4 || n > 12) { say(suStatus, 'Your playertag needs 4 to 12 characters.', true); return; }
+  go.disabled = true; tag.disabled = true; say(suStatus, 'Confirm the sign-up in your wallet…');
+  try {
+    await chain.signup(playertag);
+    say(suStatus, 'Signed up. Getting your ship ready…');
+    // wait until the new row can be read, so the game finds the player
+    const account = chain.account();
+    for (let i = 0; i < 12 && !(await chain.getPlayer(account)); i++) await new Promise(r => setTimeout(r, 800));
+    toGame();
+  } catch (err) {
+    say(suStatus, chain.friendlyError(err), true);
+    go.disabled = false; tag.disabled = false; tag.focus();
+  }
+});
+</script>
+</body>
+</html>
