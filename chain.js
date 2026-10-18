@@ -47,6 +47,11 @@ export async function getConfig() {
   return row || null;
 }
 
+/** The damage the contract has stored per template (it adds a template the first time someone equips it). */
+export async function getTemplates() {
+  return rows('templates', { limit: 1000 });
+}
+
 /** The planet being mined right now: the newest row of the track table. */
 export async function getCurrentPlanet() {
   const [row] = await rows('track', { reverse: true });

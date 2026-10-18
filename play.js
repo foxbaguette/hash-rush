@@ -24,7 +24,9 @@ for (const a of AW_DATA.arms) {
   ARMS_CARDS.push(card);
   for (const s of a.shines) for (const t of s.templates) TPL.set(t, { card, shine: s });
 }
-const damageOf = (card, s) => s.attack + s.defense + 5 * AWDesign.rarityLevel(card.rarity) + 5 * AWDesign.shineLevel(s.shine);   // as the contract computes it
+// the damage the contract has stored for the template; templates it has not added yet get its formula
+const damageOf = (card, s, id) => S.damage.get(id) ?? s.templates.map(t => S.damage.get(t)).find(d => d != null) ??
+  s.attack + s.defense + 5 * AWDesign.rarityLevel(card.rarity) + 5 * AWDesign.shineLevel(s.shine);
 const crewOf = t => t && t.card.kind === 'crew' ? { name: t.card.name, rarity: t.card.rarity, element: t.card.element, variant: t.card.variant, shine: t.shine.shine } : DEFAULT_CREW;
 const weaponOf = t => t && t.card.kind === 'arms' ? t.card.name + '|' + t.shine.shine : DEFAULT_WEAPON;
 const colorOf = p => /^[0-9a-f]{6}$/i.test(p.color || '') ? '#' + p.color : '#ff8a3d';
@@ -33,6 +35,7 @@ const thumb = img => 'https://resizer.atomichub.io/images/v1/preview?ipfs=' + im
 // ---------------------------------------------------------------- state
 const S = {
   account: undefined, player: null,
+  damage: new Map(),    // template id -> damage stored on the contract
   shown: null,          // the planet on screen: { index, total, destroyed }
   lastLog: -1, carry: 0,
   ships: new Map(),     // wallet -> { id, sig }
@@ -128,7 +131,10 @@ const colorOfWallet = w => knownPlayers.has(w) ? colorOf(knownPlayers.get(w)) : 
 // ---------------------------------------------------------------- polling
 async function poll() {
   const now = Date.now() / 1000;
-  const [tr, logs, active, cfg, me] = await Promise.all([chain.getCurrentPlanet(), chain.getLogsAfter(S.lastLog), chain.getActivePlayers(now - ACTIVE_SEC), chain.getConfig(), S.account ? chain.getPlayer(S.account) : null]);
+  const [tr, logs, active, cfg, me, tpls] = await Promise.all([chain.getCurrentPlanet(), chain.getLogsAfter(S.lastLog), chain.getActivePlayers(now - ACTIVE_SEC), chain.getConfig(), S.account ? chain.getPlayer(S.account) : null, chain.getTemplates()]);
+  const known = S.damage.size;
+  for (const t of tpls) S.damage.set(Number(t.template_id), Number(t.damage));
+  if (S.damage.size !== known && S.player) showMe();
   if (cfg) S.cooldown = Number(cfg.cooldown_sec) || 0;   // 0 until the contract with cooldowns is deployed; a failed read keeps the last value
   if (me && S.player && !S.firing) S.player = { ...me, last_action: chain.chainTime(me.last_action) >= chain.chainTime(S.player.last_action) ? me.last_action : S.player.last_action };
   if (!tr) { $('busy').textContent = 'No planet is being mined right now.'; return; }
@@ -181,7 +187,7 @@ function showMe() {
     $('who').innerHTML = '<small>Playing as</small><b style="color:' + colorOf(p) + '">' + esc(p.playertag) + '</b>';
     const c = TPL.get(Number(p.equipped_crew_template)), w = TPL.get(Number(p.equipped_weapon_template));
     renderDock($('tCrew'), c, 'crew'); renderDock($('tArms'), w, 'arms');
-    $('loDmg').textContent = c && w ? damageOf(c.card, c.shine) + damageOf(w.card, w.shine) : '–';
+    $('loDmg').textContent = c && w ? damageOf(c.card, c.shine, Number(p.equipped_crew_template)) + damageOf(w.card, w.shine, Number(p.equipped_weapon_template)) : '–';
     const ready = !!(c && w && Number(p.equipped_crew_asset) && Number(p.equipped_weapon_asset));
     S.attackReady = ready;
     updateAttack();
