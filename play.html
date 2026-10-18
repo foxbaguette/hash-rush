@@ -362,7 +362,8 @@ const hexOf = c => '#' + c.map(v => Math.round(Math.max(0, Math.min(1, v)) * 255
 function awWeapon(key) {
   const [name, shine = 'Stone'] = String(key).split('|'), a = AW_ARMS[name] || AW_ARMS['Standard Sword'];
   const pal = AWDesign.CLASS_PAL[a.class] || AWDesign.CLASS_PAL.Neutral;
-  return { name: key, heat: hexOf(pal.main), fire: A => AWDesign.ARMS[a.name](A, AWDesign.makeTier(A, a.rarity, shine, a.class)) };
+  // in the game every shot of a burst is a single projectile (the full animations are for showcases)
+  return { name: key, heat: hexOf(pal.main), fire: A => AWDesign.shotOf(a.name)(A, AWDesign.makeTier(A, a.rarity, shine, a.class)) };
 }
 const lazy = make => new Proxy({}, { get(t, k) { if (typeof k !== 'string') return undefined; if (!(k in t)) t[k] = make(k); return t[k]; }, has: () => true });
 const WEAPON_BY_NAME = lazy(awWeapon);

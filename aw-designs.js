@@ -683,6 +683,16 @@ const AWDesign = (() => {
         A.flash(nose, 0.06 + 0.03 * R, pal.hot, 0.1);
         if (S) T.shineTrail(nose, d, 0.04);
       },
+      // a single bullet's hit: a small flash and burst, a touch of the shine, a small crater
+      spark(tg, col = pal.main) {
+        A.flash(tg.p, 0.05 + 0.015 * R, pal.hot, 0.1);
+        A.burst(tg.p, T.n(5), 0.4 + 0.05 * R, 0.25, 0.01 * k, [col, pal.hot], tg.n);
+        if (S === 1) A.emit(tg.p, add(scale(tg.n, 0.4), jit(0.3)), 0.45, 0.01, GOLD, 1.5, { drag: 2, twinkle: true });
+        else if (S === 2) A.flash(add(tg.p, jit(0.05)), 0.05 * k, Math.random() < 0.5 ? VIOLET : CYAN, 0.08);
+        else if (S === 3) for (let i = 0; i < 3; i++) A.emit(tg.p, add(scale(tg.n, 0.3), jit(0.5)), 0.6, 0.009, STAR, 1.6, { drag: 2.5, twinkle: true });
+        else if (S === 4) { A.emit(tg.p, jit(0.02), 0.3, 0.04 * k, BLACK, 0.8, { add: false, drag: 2 }); A.emit(tg.p, add(scale(tg.n, 0.3), jit(0.3)), 0.25, 0.012, MAGENTA, 1.4, { drag: 2 }); }
+        A.crater(tg, { r: 0.55 + 0.08 * R, quiet: true });
+      },
     };
     return T;
   }
@@ -1404,6 +1414,31 @@ const AWDesign = (() => {
   };
   ARMS_NOTES['Leveller Bow'] = 'A shield of light closes around the ship, one giant arrow climbs and bursts high above the target, and a rain of arrows levels a whole strip of ground. Electric arcs keep jumping between the craters along the strip after the rain.';
 
-  return { RARITIES, SHINES, ELEMENT, rarityLevel, shineLevel, CREW, CREW_NOTES, buildShip,
+  // ---------------------------------------------------------------- single shots
+  // The game fires an attack as a quick burst; each shot of it is one projectile in the style of
+  // the weapon's type (the full animations above are for showcases). shotOf(name)(A, T) fires one.
+  const SHOT_KIND = name =>
+    /revolver|shotgun|dartgun|widow|requiem|confuser/i.test(name) ? 'gun' :
+    /bow|arbalest/i.test(name) ? 'bow' :
+    /spear/i.test(name) ? 'spear' :
+    /axe|hammer|cudgel/i.test(name) ? 'throw' :
+    /shield/i.test(name) ? 'disc' :
+    /staff|scepter|stave|sungorger/i.test(name) ? 'orb' :
+    /mortar/i.test(name) ? 'shell' : 'blade';
+  const SHOTS = {
+    blade: (A, T) => slash(A, T, { flight: 0.32, width: 0.07, density: 4, size: 0.022, hit: tg => T.spark(tg) }),
+    gun: (A, T) => shot(A, T, { flight: 0.16, size: 0.02, hit: tg => T.spark(tg),
+      trail: (p, d) => { A.emit(p, [0, 0, 0], 0.05, 0.018 * T.k, T.pal.hot, 1.4, { drag: 0 }); A.emit(p, U().scale(d, -0.2), 0.08, 0.012 * T.k, T.pal.main, 1.0, { drag: 0 }); T.shineTrail(p, d, 0.02); } }),
+    bow: (A, T) => shot(A, T, { flight: 0.28, model: 'rod', scale: 0.009, hit: tg => T.spark(tg), trail: (p, d) => T.trail(p, d, 0.02) }),
+    spear: (A, T) => shot(A, T, { flight: 0.3, model: 'rod', scale: 0.012, hit: tg => T.spark(tg), trail: (p, d) => T.trail(p, d, 0.025) }),
+    throw: (A, T) => spinner(A, T, { flight: 0.36, blades: 1, radius: 0.04, size: 0.025, hit: tg => T.spark(tg) }),
+    disc: (A, T) => disc(A, T, { flight: 0.32, radius: 0.05, density: 8, hit: tg => T.spark(tg) }),
+    orb: (A, T) => shot(A, T, { flight: 0.34, hit: tg => T.spark(tg),
+      trail: (p, d) => { A.emit(p, [0, 0, 0], 0.08, 0.04 * T.k, T.pal.main, 1.1, { drag: 0 }); A.emit(p, [0, 0, 0], 0.05, 0.02 * T.k, T.pal.hot, 1.3, { drag: 0 }); T.shineTrail(p, d, 0.025); } }),
+    shell: (A, T) => shot(A, T, { path: 'arc', flight: 0.55, model: 'shell', scale: 0.012, hit: tg => T.spark(tg), trail: (p, d) => T.trail(p, d, 0.025) }),
+  };
+  const shotOf = name => SHOTS[SHOT_KIND(name)];
+
+  return { RARITIES, SHINES, ELEMENT, rarityLevel, shineLevel, CREW, CREW_NOTES, buildShip, shotOf, SHOT_KIND,
     ARMS, ARMS_NOTES, makeTier, CLASS_PAL, EXHAUST, builder, applyShine, h3, mixHex };
 })();
