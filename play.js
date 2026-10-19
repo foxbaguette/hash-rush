@@ -1,7 +1,7 @@
 // The Hash Rush, live screen: the planet being mined on planetmining, every crew that attacked in
 // the last 30 minutes in orbit, the attack log replayed as it comes in, and the hangar where a
 // player changes their playertag and equips crew and weapon.
-import * as chain from './chain.js?v=20261019g';
+import * as chain from './chain.js?v=20261019h';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
@@ -48,6 +48,7 @@ const S = {
   damage: new Map(),    // template id -> damage stored on the contract
   shown: null,          // the planet on screen: { index, total, destroyed }
   lastLog: -1, carry: 0,
+  away: null, gen: 0,   // the tab is hidden: { since, fromLog, index, hash }; gen drops replays from before a catch-up
   ships: new Map(),     // wallet -> { id, sig }
   owned: null,          // { crew: {templateId: [assetIds]}, arms: {...} }
   spectating: false,    // ?as=account: read-only
@@ -161,6 +162,7 @@ function arrive() {
 }
 function playHit(log) {
   if (!S.shown) return;
+  if (S.away) { if (log.hash_found) S.away.hash = log; return; }   // the tab is hidden: nothing to animate, it catches up on return
   if (S.seq && !log.hash_found) {
     if (Number(log.index) > S.seq.hashIndex) { S.seq.held.push(log); return; }   // a hit on the next planet: after it arrives
     return feed('<span class="who" style="color:' + colorOfWallet(log.wallet) + '">' + esc(log.playertag) + '</span><span class="ar">▸</span><span class="num">' + fmt(Number(log.damage_done)) + '</span>', { color: colorOfWallet(log.wallet) });
@@ -207,11 +209,14 @@ async function poll() {
 
   // replay everything logged since the last look, spread at random over the next 10 seconds
   logs.sort((a, b) => Number(a.index) - Number(b.index));
+  const gen = S.gen;
   for (const log of logs) {
     S.lastLog = Math.max(S.lastLog, Number(log.index));
+    if (S.away) { if (log.hash_found) S.away.hash = log; continue; }
     const mine = log.wallet === S.account && Date.now() - S.firedAt < 60000;
-    setTimeout(() => playHit(log), mine ? 200 : Math.random() * POLL_MS * 0.9);
+    setTimeout(() => { if (gen === S.gen) playHit(log); }, mine ? 200 : Math.random() * POLL_MS * 0.9);
   }
+  if (S.away) return;   // a hidden tab only keeps count; the planet is redrawn on return
   if (Number(tr.index) !== S.shown.index) {
     // the hash was found: the next planet arrives when the countdown ends (or right away if it already has)
     S.nextTrack = tr;
@@ -224,6 +229,34 @@ async function poll() {
     // after the replay, settle on the contract's own count
     setTimeout(() => { if (S.shown && S.shown.index === Number(tr.index)) { S.shown.destroyed = Math.max(S.shown.destroyed, Math.min(S.shown.total, Number(tr.destroyed_blocks))); updateHud(); } }, POLL_MS);
   }
+}
+// Back from a hidden tab: instead of replaying everything that happened (it can be thousands of
+// hits), "Catching up…" and then the chain's current planet as it is now, with one line in the feed.
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    if (S.shown && !S.away) S.away = { since: Date.now(), fromLog: S.lastLog, index: S.shown.index, hash: null };
+    return;
+  }
+  const away = S.away;
+  S.away = null;
+  if (away && Date.now() - away.since > 4000) catchUp(away);
+});
+async function catchUp(away) {
+  S.gen++;   // replays still waiting from before are dropped
+  $('catchup').hidden = false;
+  try {
+    const [tr, latest] = await Promise.all([chain.getCurrentPlanet(), chain.getLatestLogIndex()]);
+    if (S.seq) { S.seq = null; $('hashBand').classList.remove('on'); $('hashBand').hidden = true; }
+    clearTimeout(S.nextTimer); S.nextTimer = null; S.nextTrack = null;
+    S.lastLog = Math.max(S.lastLog, latest);
+    if (tr) loadPlanet(tr);
+    const hits = Math.max(0, latest - away.fromLog);
+    if (tr && Number(tr.index) !== away.index) {
+      feed(away.hash ? '<b>' + esc(away.hash.playertag) + '</b><span>found the hash while you were away</span>' : '<span>The hash was found while you were away</span><span>· now on ' + esc(String(tr.planet)) + '</span>', { hash: true });
+    }
+    if (hits) feed('<span class="num">' + fmt(hits) + '</span><span>' + (hits === 1 ? 'hit' : 'hits') + ' while you were away</span>');
+  } catch (err) { console.error(err); }
+  setTimeout(() => { $('catchup').hidden = true; }, 400);
 }
 function pollNow() {
   S.polling ??= poll().catch(err => console.error(err)).finally(() => { S.polling = null; });
@@ -629,7 +662,7 @@ HeroGL.view($('hgPreview'), t => PV.kind === 'crew'
 (async () => {
   // ?as=account looks at the game as that player, read-only (for testing; nothing can be signed)
   const as = new URLSearchParams(location.search).get('as');
-  if (as) { S.account = as; S.spectating = true; window.hashRush = { S, playHit, ensureShip, openHangar, showMe }; }
+  if (as) { S.account = as; S.spectating = true; window.hashRush = { S, playHit, ensureShip, openHangar, showMe, catchUp }; }
   else { try { S.account = await chain.restoreSession(); } catch (err) { S.account = undefined; } }
   try { await refreshPlayer(); } catch (err) { console.error(err); showMe(); }
   startPolling();
