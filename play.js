@@ -1,8 +1,8 @@
 // The Hash Rush, live screen: the planet being mined on planetmining, every crew that attacked in
 // the last 30 minutes in orbit, the attack log replayed as it comes in, and the hangar where a
 // player changes their playertag and equips crew and weapon.
-import * as chain from './chain.js?v=20261019r';
-import * as gains from './gains.js?v=20261019r';
+import * as chain from './chain.js?v=20261019s';
+import * as gains from './gains.js?v=20261019s';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
@@ -110,7 +110,7 @@ function feed(html, opts = {}) {
   const box = $('feed');
   box.prepend(el);
   while (box.children.length > 6) box.lastChild.remove();
-  [...box.children].forEach((r, i) => r.classList.toggle('old', i >= 3));
+  [...box.children].forEach((r, i) => { if (i >= 3) r.classList.add('old'); });   // a row only ever fades, never lights up again
   setTimeout(() => el.classList.add('old'), 9000);
 }
 const ARMS_BY_NAME = Object.fromEntries(ARMS_CARDS.map(c => [c.name, c]));
