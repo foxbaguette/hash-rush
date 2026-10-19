@@ -1,7 +1,7 @@
 // The Hash Rush, live screen: the planet being mined on planetmining, every crew that attacked in
 // the last 30 minutes in orbit, the attack log replayed as it comes in, and the hangar where a
 // player changes their playertag and equips crew and weapon.
-import * as chain from './chain.js';
+import * as chain from './chain.js?v=20261019b';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
@@ -33,6 +33,14 @@ const colorOf = p => /^[0-9a-f]{6}$/i.test(p.color || '') ? '#' + p.color : '#ff
 // card art from the AtomicHub resizer. It refuses requests that name another site as the referrer
 // (hotlink protection: our live address gets a 403), so the images are loaded without one
 const thumb = img => 'https://resizer.atomichub.io/images/v1/preview?ipfs=' + img + '&size=370';
+// if a picture still fails, the same art from other IPFS gateways (full size, so only as a fallback)
+const IMG_FALLBACK = ['https://ipfs.alienworlds.io/ipfs/', 'https://gateway.pinata.cloud/ipfs/'];
+document.addEventListener('error', e => {
+  const im = e.target;
+  if (!(im instanceof HTMLImageElement) || !im.dataset.ipfs) return;
+  const n = Number(im.dataset.try || 0);
+  if (n < IMG_FALLBACK.length) { im.dataset.try = n + 1; im.src = IMG_FALLBACK[n] + im.dataset.ipfs; }
+}, true);
 
 // ---------------------------------------------------------------- state
 const S = {
@@ -268,7 +276,7 @@ function renderDock(el, t, kind) {
   }
   el.style.setProperty('--rc', RARITY_COL[t.card.rarity] || '#ffffff55');
   const short = t.shine.shine === 'XDimension' ? 'XDim' : t.shine.shine;
-  el.innerHTML = '<img alt="" referrerpolicy="no-referrer" src="' + thumb(t.card.img) + '"><span class="shb" style="background:' + SHINE_COL[t.shine.shine] + '">' + short + '</span>' +
+  el.innerHTML = '<img alt="" referrerpolicy="no-referrer" data-ipfs="' + t.card.img + '" src="' + thumb(t.card.img) + '"><span class="shb" style="background:' + SHINE_COL[t.shine.shine] + '">' + short + '</span>' +
     '<div class="t"><span>' + t.card.rarity + ' ' + what + '</span><b>' + esc(t.card.name) + '</b></div>';
   el.setAttribute('aria-label', 'Your ' + what + ': ' + t.card.name + ', ' + t.card.rarity + ', ' + t.shine.shine + '. Open the hangar');
 }
@@ -447,7 +455,7 @@ function renderList() {
     const n = cardOwned(c), b = document.createElement('button'), on = cur && cur.card === c;
     b.type = 'button'; b.className = 'item' + (n ? '' : ' dim'); b.setAttribute('role', 'listitem');
     if (H.sel[kind] === c) b.setAttribute('aria-current', 'true');
-    b.innerHTML = '<img alt="" loading="lazy" referrerpolicy="no-referrer" src="' + thumb(c.img) + '"><span><span class="nm">' + esc(c.name) + '</span><span class="rr rar-' + c.rarity + '">' + c.rarity + ' · ' + esc(kind === 'crew' ? c.element : c.cls) + '</span></span>' +
+    b.innerHTML = '<img alt="" loading="lazy" referrerpolicy="no-referrer" data-ipfs="' + c.img + '" src="' + thumb(c.img) + '"><span><span class="nm">' + esc(c.name) + '</span><span class="rr rar-' + c.rarity + '">' + c.rarity + ' · ' + esc(kind === 'crew' ? c.element : c.cls) + '</span></span>' +
       '<span class="own' + (n ? ' yes' : '') + '">' + (on ? (H.pending[kind] ? 'Selected' : 'Equipped') : S.owned ? (n ? n + ' owned' : 'Not owned') : '') + '</span>';
     b.addEventListener('click', () => { H.sel[kind] = c; H.shine[kind] = null; H.picked[kind] = true; renderList(); renderDetail(); $('hgCards').classList.add('detail-open'); });
     list.appendChild(b);

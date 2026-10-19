@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- the golden hash: a gold cube seen from above, three faces lit from the top left -->
+  <defs>
+    <linearGradient id="t" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff3c4"/><stop offset="1" stop-color="#ffcf5a"/></linearGradient>
+    <linearGradient id="l" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f2bd3e"/><stop offset="1" stop-color="#b8860b"/></linearGradient>
+    <linearGradient id="r" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c8920f"/><stop offset="1" stop-color="#7a5306"/></linearGradient>
+  </defs>
+  <path d="M32 5 L57 19 L32 33 L7 19 Z" fill="url(#t)"/>
+  <path d="M7 19 L32 33 L32 60 L7 46 Z" fill="url(#l)"/>
+  <path d="M57 19 L57 46 L32 60 L32 33 Z" fill="url(#r)"/>
+  <path d="M32 5 L57 19 L57 46 L32 60 L7 46 L7 19 Z M7 19 L32 33 L57 19 M32 33 L32 60" fill="none" stroke="#fff6d8" stroke-opacity="0.7" stroke-width="1.6" stroke-linejoin="round"/>
+</svg>
