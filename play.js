@@ -1,7 +1,7 @@
 // The Hash Rush, live screen: the planet being mined on planetmining, every crew that attacked in
 // the last 30 minutes in orbit, the attack log replayed as it comes in, and the hangar where a
 // player changes their playertag and equips crew and weapon.
-import * as chain from './chain.js?v=20261019k';
+import * as chain from './chain.js?v=20261019l';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
@@ -85,11 +85,11 @@ function loadPlanet(tr) {
 // ---------------------------------------------------------------- the fleet
 function ensureShip(p) {
   const crewT = TPL.get(Number(p.equipped_crew_template)), weaponT = TPL.get(Number(p.equipped_weapon_template));
-  const sig = [p.equipped_crew_template, p.equipped_weapon_template, p.playertag, p.color].join('#');
+  const sig = [p.equipped_crew_template, p.equipped_weapon_template, p.playertag, p.color, Ranks.hashesOf(p)].join('#');
   const cur = S.ships.get(p.wallet);
   if (cur && cur.sig === sig) return cur.id;
   if (cur) planet.fleet.remove(cur.id);
-  const id = planet.fleet.addPlayer({ tag: p.playertag, color: colorOf(p), crew: crewOf(crewT), weapon: weaponOf(weaponT), wallet: p.wallet, me: p.wallet === S.account });
+  const id = planet.fleet.addPlayer({ tag: p.playertag, color: colorOf(p), crew: crewOf(crewT), weapon: weaponOf(weaponT), wallet: p.wallet, me: p.wallet === S.account, rank: Ranks.badge(Ranks.hashesOf(p)) });
   S.ships.set(p.wallet, { id, sig, weapon: weaponOf(weaponT) });
   return id;
 }
@@ -165,7 +165,7 @@ function playHit(log) {
   if (S.away) { if (log.hash_found) S.away.hash = log; return; }   // the tab is hidden: nothing to animate, it catches up on return
   if (S.seq && !log.hash_found) {
     if (Number(log.index) > S.seq.hashIndex) { S.seq.held.push(log); return; }   // a hit on the next planet: after it arrives
-    return feed('<span class="who" style="color:' + colorOfWallet(log.wallet) + '">' + esc(log.playertag) + '</span><span class="ar">▸</span><span class="num">' + fmt(Number(log.damage_done)) + '</span>', { color: colorOfWallet(log.wallet) });
+    return feed(rankOfWallet(log.wallet) + '<span class="who" style="color:' + colorOfWallet(log.wallet) + '">' + esc(log.playertag) + '</span><span class="ar">▸</span><span class="num">' + fmt(Number(log.damage_done)) + '</span>', { color: colorOfWallet(log.wallet) });
   }
   const dmg = Number(log.damage_done), ship = S.ships.get(log.wallet);
   // the same share of the game planet as of the contract's planet; leftovers carry over
@@ -176,7 +176,7 @@ function playHit(log) {
   updateHud();
   const color = colorOfWallet(log.wallet);
   const weapon = ship ? ship.weapon.split('|')[0] : 'Weapon', rarity = (ARMS_BY_NAME[weapon] || {}).rarity || 'Common';
-  feed('<span class="who" style="color:' + color + '">' + esc(log.playertag) + '</span><span class="ar">▸</span><span class="wchip rar-' + rarity + '">' + esc(weapon) + '</span><span class="ar">▸</span><span class="num">' + fmt(dmg) + '</span>', { color });
+  feed(rankOfWallet(log.wallet) + '<span class="who" style="color:' + color + '">' + esc(log.playertag) + '</span><span class="ar">▸</span><span class="wchip rar-' + rarity + '">' + esc(weapon) + '</span><span class="ar">▸</span><span class="num">' + fmt(dmg) + '</span>', { color });
   if (log.hash_found) {
     feed('<b>' + esc(log.playertag) + '</b><span>found the hash</span><span>· new world incoming</span>', { hash: true });
     hashFound(log);
@@ -184,6 +184,7 @@ function playHit(log) {
 }
 const knownPlayers = new Map();   // wallet -> latest player row we have seen
 const colorOfWallet = w => knownPlayers.has(w) ? colorOf(knownPlayers.get(w)) : '#ff8a3d';
+const rankOfWallet = w => knownPlayers.has(w) ? Ranks.badge(Ranks.hashesOf(knownPlayers.get(w))) : '';
 
 // ---------------------------------------------------------------- polling
 async function poll() {
@@ -280,7 +281,8 @@ function showMe() {
   if (S.spectating) $('connectBtn').textContent = 'Use my wallet';
   $('loadout').hidden = !p;
   if (p) {
-    $('who').innerHTML = '<small>Playing as</small><b style="color:' + colorOf(p) + '">' + esc(p.playertag) + '</b>';
+    const hashes = Ranks.hashesOf(p);
+    $('who').innerHTML = '<small>Playing as' + (hashes ? ' · ' + Ranks.title(hashes) : '') + '</small><b style="color:' + colorOf(p) + '">' + Ranks.badge(hashes) + esc(p.playertag) + '</b>';
     const c = TPL.get(Number(p.equipped_crew_template)), w = TPL.get(Number(p.equipped_weapon_template));
     renderDock($('tCrew'), c, 'crew'); renderDock($('tArms'), w, 'arms');
     $('loDmg').textContent = c && w ? damageOf(c.card, c.shine, Number(p.equipped_crew_template)) + damageOf(w.card, w.shine, Number(p.equipped_weapon_template)) : '–';
