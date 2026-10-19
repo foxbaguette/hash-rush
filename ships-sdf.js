@@ -654,5 +654,14 @@ void main() {
   }
   /** How big a crew template's ship is drawn, relative to the standard ship (its shine and its class). */
   const scaleOf = tpl => { const st = styleOf(tpl); return TIER_SIZE[st.tier] * (DESIGNS[st.cls].size || 1); };
-  return { create, styleOf, scaleOf, SHINES, DESIGNS, TIER_SIZE };
+  /** A crew card's template from its name, variant (index) and shine, for pages that know a crew by card. */
+  let byCard = null;
+  function tplOf(name, variant = 0, shine = 'Stone') {
+    if (!byCard) {
+      byCard = new Map();
+      for (const c of (typeof AW_DATA !== 'undefined' ? AW_DATA.crew : [])) c.variants.forEach((v, vi) => { for (const s of v.shines) if (s.templates.length) byCard.set(c.name + '|' + vi + '|' + s.shine, s.templates[0]); });
+    }
+    return byCard.get(name + '|' + (variant || 0) + '|' + shine) ?? byCard.get(name + '|' + (variant || 0) + '|Stone') ?? byCard.get(name + '|0|Stone');
+  }
+  return { create, styleOf, scaleOf, tplOf, SHINES, DESIGNS, TIER_SIZE };
 })();

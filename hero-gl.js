@@ -1,7 +1,7 @@
 'use strict';
 /*
   HeroGL: real game renders for marketing pages. One shared WebGL2 context draws the space
-  sky, voxel planets (planets-data.js) and Alien Worlds crew ships (aw-designs.js) for every
+  sky, voxel planets (planets-data.js) and Alien Worlds crew ships (ships-sdf.js, else aw-designs.js) for every
   registered canvas that is on screen, then copies the frame into that canvas. A 2D overlay
   callback can paint glows, beams and HUD lines on top using project().
 
@@ -161,6 +161,10 @@ void main() {
   const rotOnly = m => { const o = m.slice(); o[12] = o[13] = o[14] = 0; return o; };
   const model = (pos, r, u, f) => new Float32Array([r[0], r[1], r[2], 0, u[0], u[1], u[2], 0, f[0], f[1], f[2], 0, pos[0], pos[1], pos[2], 1]);
   const LW = norm([0.75, 0.45, 0.5]);
+  // crew ships as in the game (ships-sdf.js, loaded before this file): the ship formula, drawn once its
+  // shader has compiled (until then, and for anything without a crew card, the voxel ship)
+  const kit = typeof ShipKit !== 'undefined' ? ShipKit.create(gl) : null;
+  if (kit) kit.prewarm();
   const basisOf = p => { const yaw = p.yaw || 0, tilt = p.tilt ?? 0.3, cy = Math.cos(yaw), sy = Math.sin(yaw), ct = Math.cos(tilt), st = Math.sin(tilt); return [[cy, 0, -sy], [sy * st, ct, cy * st], [sy * ct, -st, cy * ct]]; };
   // world position of a point on (or k times the radius of) a planet, given a direction in the planet's own frame
   const surface = (p, dir, k = 1) => { const [r, u, f] = basisOf(p), d = norm(dir); return [0, 1, 2].map(i => p.pos[i] + (r[i] * d[0] + u[i] * d[1] + f[i] * d[2]) * p.size * k); };
@@ -283,12 +287,19 @@ void main() {
         const m = planetModel(p), [r, u, f] = basisOf(p);
         draw(m, model(p.pos, r, u, f), VP, sc.eye, 1, m.scale * p.size, v.t);
       }
-      const shipsOut = [];
+      const shipsOut = [], kitShips = [];
       for (const s of sc.ships || []) {
         const m = shipModel(s), f = norm(s.fwd), r = norm(cross(s.up || [0, 1, 0], f)), u = cross(f, r);
+        const tpl = kit && ShipKit.tplOf(s.name, s.variant, s.shine);
+        if (tpl && kit.ready(tpl)) {   // the scene's size is the ship's size here, whatever its scale in the game
+          kitShips.push({ pos: s.pos, right: r, up: u, fwd: f, size: s.size / ShipKit.scaleOf(tpl), tpl, accent: s.accent });
+          shipsOut.push({ ...s, r, u, f, scale: s.size / m.radius, engines: [] });
+          continue;
+        }
         draw(m, model(s.pos, r, u, f), VP, sc.eye, 0, s.size / m.radius, v.t);
         shipsOut.push({ ...s, r, u, f, scale: s.size / m.radius, engines: m.engines });
       }
+      if (kitShips.length) { kit.draw(kitShips, VP, sc.eye, LW, (1 / Math.tan(fov / 2)) * h / 2); gl.useProgram(prog); }
       if (sc.fx && sc.fx.length) {
         const px = (1 / Math.tan(fov / 2)) * h / 2;
         gl.depthMask(false); gl.enable(gl.BLEND);
