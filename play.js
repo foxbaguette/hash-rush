@@ -1,8 +1,8 @@
 // The Hash Rush, live screen: the planet being mined on planetmining, every crew that attacked in
 // the last 30 minutes in orbit, the attack log replayed as it comes in, and the hangar where a
 // player changes their playertag and equips crew and weapon.
-import * as chain from './chain.js?v=20261019t';
-import * as gains from './gains.js?v=20261019t';
+import * as chain from './chain.js?v=20261019w';
+import * as gains from './gains.js?v=20261019w';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
@@ -121,10 +121,14 @@ const BAND_AFTER = 1.7, COUNTDOWN = 10;
 function hashFound(log) {
   if (S.seq) return;
   S.seq = { hashIndex: Number(log.index), held: [], done: false };
-  setTimeout(() => {
+  // the finding attack lands first (its ship may still be flying round to the crater), then the planet breaks up
+  const t0 = Date.now();
+  const go = () => {
+    if (planet.busy && Date.now() - t0 < 8000) { setTimeout(go, 200); return; }
     planet.breakUp();
     setTimeout(() => showBand(log), BAND_AFTER * 1000);
-  }, 3200);
+  };
+  setTimeout(go, 3200);
 }
 function showBand(log) {
   $('hbTag').textContent = log.playertag;

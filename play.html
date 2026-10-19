@@ -7,10 +7,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Michroma&family=Barlow+Condensed:wght@500;600;800&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link rel="icon" href="favicon.svg?v=20261019t" type="image/svg+xml">
-<link rel="icon" href="favicon-32.png?v=20261019t" type="image/png" sizes="32x32">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=20261019t">
-<link rel="stylesheet" href="ui.css?v=20261019t">
+<link rel="icon" href="favicon.svg?v=20261019w" type="image/svg+xml">
+<link rel="icon" href="favicon-32.png?v=20261019w" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=20261019w">
+<link rel="stylesheet" href="ui.css?v=20261019w">
 <style>
   html, body { margin: 0; height: 100%; background: #000; color: var(--ink); overflow: hidden; font: 15px/1.5 var(--text); }
   canvas#c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; opacity: 0; transition: opacity 1s; }
@@ -608,15 +608,15 @@
   </div>
 </dialog>
 
-<script src="planets-data.js?v=20261019t"></script>
-<script src="space.js?v=20261019t"></script>
-<script src="weapons-lib.js?v=20261019t"></script>
-<script src="aw-data.js?v=20261019t"></script>
-<script src="aw-designs.js?v=20261019t"></script>
-<script src="sdf.js?v=20261019t"></script>
-<script src="ships-sdf.js?v=20261019t"></script>
-<script src="hero-gl.js?v=20261019t"></script>
-<script src="ranks.js?v=20261019t"></script>
+<script src="planets-data.js?v=20261019w"></script>
+<script src="space.js?v=20261019w"></script>
+<script src="weapons-lib.js?v=20261019w"></script>
+<script src="aw-data.js?v=20261019w"></script>
+<script src="aw-designs.js?v=20261019w"></script>
+<script src="sdf.js?v=20261019w"></script>
+<script src="ships-sdf.js?v=20261019w"></script>
+<script src="hero-gl.js?v=20261019w"></script>
+<script src="ranks.js?v=20261019w"></script>
 <script>
 'use strict';
 /*
@@ -1663,10 +1663,14 @@ function setWeapon(id, weapon) {
   return true;
 }
 function shipPose(s) {
-  const nose = add(s.pos, scale(s.fwd, s.model.nose * shipScale(s)));
+  // a crew ship drawn by ships-sdf.js is 6 model units from the middle to the nose at its standard size
+  const nose = add(s.pos, scale(s.fwd, s.tpl && looks.on ? sdfSize(s) * ShipKit.scaleOf(s.tpl) : s.model.nose * shipScale(s)));
   return { pos: s.pos, fwd: s.fwd, up: s.up, right: s.right, nose };
 }
 const shipScale = s => 0.019 * Math.sqrt(Math.max(1, dist / 5.4)) * (s.sizeK || (s.design === 'frigate' ? 1.1 : 1));
+// a crew ship drawn by ships-sdf.js: the new ships are all built at one size, so only the crew's rarity
+// (not the old voxel model's size) and the ship's own scale and shine (ShipKit) decide how big it is
+const sdfSize = s => shipScale(s) * Math.max(6, s.model.radius || 6);
 
 // remember the fleet between visits (per browser; harmless if storage is blocked)
 const FLEET_KEY = 'mbp.fleet.v1';
@@ -1777,7 +1781,7 @@ function schedule(n, shipId) {
   if (!ship.queued && !ship.firing) ship.aimDir = chunks[0].d;
   plan.forEach((p, j) => {
     const at = simT + MOVE + j * SHOT_GAP;   // fly into position first, then the burst
-    volleys.push({ at, shipId: ship.id, quota: p.quota, deadline: at + m.last + 1.2, kStart: p.kStart });
+    volleys.push({ at, shipId: ship.id, quota: p.quota, deadline: at + m.last + 2.6, kStart: p.kStart });   // room to fly round the planet first
     ship.queued++;
   });
   volleys.sort((a, b) => a.at - b.at);
@@ -1827,6 +1831,8 @@ function launchVolley(v) {
     fireBatch(v.quota, C3(WEAPON_BY_NAME[ship.weapon].heat));
     return true;
   }
+  // a ship fires once its nose is on the crater (one still flying in waits for it), unless the volley is late
+  if (!late && dot(ship.fwd, norm(sub(aim.p, shipPose(ship).nose))) < 0.85) return false;
   ship.queued = Math.max(0, ship.queued - 1);
   const wp = WEAPON_BY_NAME[ship.weapon];
   const tag = {
@@ -1892,6 +1898,7 @@ const planet = {
   get name() { return def.name; },
   breakUp: () => breakUp(),   // the hash is found: the planet comes apart (the next load warps in)
   get breaking() { return BRK.on; },
+  get busy() { return volleys.length > 0 || active.size > 0; },   // shots still to fire or in flight
 };
 window.planet = planet;
 
@@ -1955,7 +1962,7 @@ function placeLabels(VP, camW) {
   for (const x of fleet) {
     if (!x.label) continue;
     // anchor the name just above the top of the ship (its model's radius at the size it is drawn)
-    const top = add(x.pos, [0, (x.model.top || x.model.radius || 7) * shipScale(x) + 0.01, 0]);
+    const top = add(x.pos, [0, (x.tpl && looks.on ? sdfSize(x) * ShipKit.scaleOf(x.tpl) * 0.37 : (x.model.top || x.model.radius || 7) * shipScale(x)) + 0.01, 0]);
     const p = top, cw = VP[3] * p[0] + VP[7] * p[1] + VP[11] * p[2] + VP[15];
     if (cw <= 0.01) { x.label.style.transform = 'translate(-9999px,0)'; continue; }
     const cx = (VP[0] * p[0] + VP[4] * p[1] + VP[8] * p[2] + VP[12]) / cw, cy = (VP[1] * p[0] + VP[5] * p[1] + VP[9] * p[2] + VP[13]) / cw;
@@ -2226,17 +2233,35 @@ function drawParticles(list, prog, VP, pxScale, gain = 1) {
   gl.drawArrays(gl.POINTS, 0, n);
 }
 
-// Ships fly like ships: with volleys to fire they leave the orbit and steer to their own spot
-// in a ring above the crater, accelerating along their heading, banking into turns and
-// curving around the planet; they ease to a stop, turn to face the crater and fire.
-// Afterwards they steer back and merge into their orbit.
+// Ships fly like ships: with volleys to fire they leave the orbit and fly to their own spot in a
+// ring above the crater. They turn their nose first and thrust along it (slowing down in a tight
+// turn, so they bank round in a U-turn instead of sliding backwards), curve along the planet, then
+// ease into the spot, face the crater and fire. Afterwards they do not fly back to where they came
+// from: they join a new orbit right where they are, heading the way they face.
 // (top speed is kept low enough that the turn needed to follow the planet's curve, v²/r, stays
-// within maxAcc; otherwise ships drift outward while crossing)
-const FLY = { maxSpeed: 2.6, maxAcc: 8, slow: 0.7, turn: 4, response: 4 };
+// within what the ship can do; otherwise ships drift outward while crossing)
+const FLY = { maxSpeed: 2.4, accel: 3.0, brake: 4.5, slow: 0.8, turn: 2.8, aimTurn: 4, response: 4, near: 0.4 };
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+// a new orbit for the ship through its position, moving along dir (the shell keeps its radius)
+function rejoinOrbit(s, dir) {
+  const P = norm(s.pos);
+  let t = sub(dir, scale(P, dot(dir, P)));
+  if (len(t) < 0.2) t = sub(s.orbDir || basis(P)[0], scale(P, dot(s.orbDir || basis(P)[0], P)));   // facing straight down: keep the old way round
+  if (len(t) < 1e-4) t = basis(P)[0];
+  const N = norm(cross(norm(t), P));
+  const incl = Math.acos(clamp(N[1], -1, 1)), si = Math.sin(incl);
+  const node = si > 1e-4 ? Math.atan2(N[0] / si, -N[2] / si) : 0;
+  const ci = Math.cos(incl), cn = Math.cos(node), sn = Math.sin(node);
+  const x1 = P[0] * cn + P[2] * sn, z1 = -P[0] * sn + P[2] * cn, y1 = P[1];
+  Object.assign(s, { incl, node, angle: Math.atan2(y1 * si + z1 * ci, x1), dirSign: 1 });
+}
 function flyShip(s, orbPos, orbFwd, orbVel, dt) {
   const engaged = s.queued + s.firing > 0 && s.aimDir;
-  if (engaged && s.mode === 'orbit') { s.mode = 'fly'; s.pos = orbPos; s.vel = orbVel; }
-  let wantFwd, acc = [0, 0, 0];
+  if (engaged && s.mode === 'orbit') { s.mode = 'fly'; s.pos = orbPos; s.vel = orbVel; s.orbDir = orbFwd; }
+  // done firing: a new orbit from here (this frame it holds still; from the next frame it follows that orbit)
+  if (!engaged && s.wasEngaged && s.mode === 'fly') { rejoinOrbit(s, len(s.vel) > 0.3 ? s.vel : s.fwd); s.wasEngaged = false; s.hold = true; }
+  if (engaged) s.wasEngaged = true;
+  let wantFwd, acc = [0, 0, 0], turn = FLY.turn;
   if (s.mode === 'orbit') {
     s.pos = orbPos; s.vel = orbVel; wantFwd = orbFwd;
   } else {
@@ -2246,13 +2271,14 @@ function flyShip(s, orbPos, orbFwd, orbVel, dt) {
       const ph = s.id * 2.39996, kk = 0.25 + 0.4 * ((s.id * 0.6180339) % 1);   // each ship its own spot in the ring
       goal = scale(norm(add(n, add(scale(bu, Math.cos(ph) * kk), scale(bv, Math.sin(ph) * kk)))), s.rCur);
       face = surfaceTarget(s.aimDir).p;
-    } else { goal = orbPos; goalVel = orbVel; }
+    } else if (s.hold) { goal = s.pos; }
+    else { goal = orbPos; goalVel = orbVel; }
     // fly along the curve of the planet towards the goal (never through it), holding the
     // shell's height; only the last stretch is a straight line in
     const pd = norm(s.pos), gd = norm(goal), r = len(s.pos), rG = len(goal);
-    const ang = Math.acos(Math.max(-1, Math.min(1, dot(pd, gd))));
+    const ang = Math.acos(clamp(dot(pd, gd), -1, 1));
     const remaining = ang * r + Math.abs(rG - r);
-    const speed = FLY.maxSpeed * Math.min(1, remaining / FLY.slow);   // full speed until close, then ease off
+    const k = Math.min(1, remaining / FLY.slow), speed = FLY.maxSpeed * k * k * (3 - 2 * k);   // ease in to the spot
     let desired;
     if (ang > 0.15) {
       let along = sub(gd, scale(pd, dot(gd, pd)));
@@ -2263,37 +2289,57 @@ function flyShip(s, orbPos, orbFwd, orbVel, dt) {
       desired = d > 1e-6 ? scale(to, speed / d) : [0, 0, 0];
     }
     desired = add(desired, goalVel);   // keep pace with a moving goal (the orbit)
-    acc = scale(sub(desired, s.vel), FLY.response);   // reach the wanted velocity in ~1/response s (damps the height hold)
-    const al = len(acc), lim = FLY.maxAcc;
-    if (al > lim) acc = scale(acc, lim / al);
+    const v0 = s.vel;
+    // cruise (nose first) on the way out and back; only the arrival at the firing spot and the final
+    // merge into the orbit steer the velocity directly
+    const fine = engaged ? remaining <= FLY.near : len(sub(goal, s.pos)) < 0.06;
+    if (!fine && dt > 0) {
+      // the cruise: turn the nose toward where it wants to go and thrust along it; the speed drops while
+      // the nose points away, so a ship heading the wrong way banks round instead of flying backwards
+      const dl = len(desired), dd = dl > 1e-6 ? scale(desired, 1 / dl) : s.fwd;
+      const along = Math.max(0, dot(s.fwd, dd));
+      const want = dl * (0.12 + 0.88 * along * along), sp = len(s.vel);
+      const nsp = sp + clamp(want - sp, -FLY.brake * dt, FLY.accel * dt);
+      s.vel = scale(s.fwd, nsp);
+      wantFwd = dd;
+    } else {
+      // the last stretch: steer the velocity straight in, and ease to a stop at the spot
+      acc = scale(sub(desired, s.vel), FLY.response);
+      const al = len(acc), lim = 8;
+      if (al > lim) acc = scale(acc, lim / al);
+      if (dt > 0) s.vel = add(s.vel, scale(acc, dt));
+      const sp = len(s.vel);
+      wantFwd = sp > 0.05 ? scale(s.vel, 1 / sp) : s.fwd;
+    }
     if (dt > 0) {
-      s.vel = add(s.vel, scale(acc, dt));
+      acc = scale(sub(s.vel, v0), 1 / dt);   // for the banking
       s.pos = add(s.pos, scale(s.vel, dt));
       // keep clear of the surface
-      const rKeep = PRg * 1.3, r = len(s.pos);
-      if (r < rKeep) {
-        const out = scale(s.pos, 1 / r);
+      const rKeep = PRg * 1.3, rr = len(s.pos);
+      if (rr < rKeep) {
+        const out = scale(s.pos, 1 / rr);
         s.pos = scale(out, rKeep);
         const vin = dot(s.vel, out);
         if (vin < 0) s.vel = sub(s.vel, scale(out, vin));
       }
     }
-    const dGoal = len(sub(goal, s.pos)), sp = len(s.vel);
-    if (!engaged && dGoal < 0.03) s.mode = 'orbit';   // merged back into the orbit
-    // nose along the flight path; near the firing spot, turn to face the crater
-    if (face && dGoal < 0.45) wantFwd = norm(sub(face, s.pos));
-    else wantFwd = sp > 0.05 ? scale(s.vel, 1 / sp) : s.fwd;
+    const dGoal = len(sub(goal, s.pos));
+    // merged into the orbit: there, and at its pace (no jump from a standstill to orbit speed)
+    if (!engaged && !s.hold && dGoal < 0.03 && len(sub(s.vel, goalVel)) < 0.15) s.mode = 'orbit';
+    s.hold = false;
+    // near the firing spot, turn to face the crater
+    if (face && dGoal < 0.2 && len(s.vel) < 0.35) { wantFwd = norm(sub(face, s.pos)); turn = FLY.aimTurn; }
   }
   // turn towards the wanted heading at a limited rate
-  const c = Math.max(-1, Math.min(1, dot(s.fwd, wantFwd))), th = Math.acos(c);
-  s.fwd = th < 1e-4 || dt === 0 ? (dt === 0 ? s.fwd : wantFwd) : slerp(s.fwd, wantFwd, Math.min(1, FLY.turn * dt / th));
+  const c = clamp(dot(s.fwd, wantFwd), -1, 1), th = Math.acos(c);
+  s.fwd = th < 1e-4 || dt === 0 ? (dt === 0 ? s.fwd : wantFwd) : slerp(s.fwd, wantFwd, Math.min(1, turn * dt / th));
   // up = away from the planet, banked into the turn
   const out = norm(s.pos);
   let up = sub(out, scale(s.fwd, dot(out, s.fwd)));
   if (len(up) < 0.2) up = sub(s.up, scale(s.fwd, dot(s.up, s.fwd)));   // looking straight down: keep the last roll
   up = norm(up);
   const right = cross(up, s.fwd);
-  const rollWant = Math.max(-0.7, Math.min(0.7, -dot(acc, right) * 0.12));
+  const rollWant = clamp(-dot(acc, right) * 0.18, -0.8, 0.8);
   if (dt > 0) s.roll += (rollWant - s.roll) * Math.min(1, dt * 4);
   s.up = norm(add(scale(up, Math.cos(s.roll)), scale(right, Math.sin(s.roll))));
   s.right = cross(s.up, s.fwd);
@@ -2408,7 +2454,7 @@ function frame(now) {
   // ships and projectiles
   // crew ships in the distance-field look: drawn by ships-sdf.js (until their shader has compiled, the old way)
   const sdfCrew = looks.on ? fleet.filter(s => s.wallet && shipKit.ready(s.tpl)) : [];
-  if (sdfCrew.length) shipKit.draw(sdfCrew.map(s => ({ pos: s.pos, right: s.right, up: s.up, fwd: s.fwd, size: shipScale(s) * 6, tpl: s.tpl, accent: s.accent })), VP, camW, LW, fy * H / 2);
+  if (sdfCrew.length) shipKit.draw(sdfCrew.map(s => ({ pos: s.pos, right: s.right, up: s.up, fwd: s.fwd, size: sdfSize(s), tpl: s.tpl, accent: s.accent })), VP, camW, LW, fy * H / 2);
   let drawShip = drawVox;
   if (looks.on) {
     const pr = sdfKit.progs().shipProg;
@@ -2507,6 +2553,6 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 </script>
-<script type="module" src="play.js?v=20261019t"></script>
+<script type="module" src="play.js?v=20261019w"></script>
 </body>
 </html>
