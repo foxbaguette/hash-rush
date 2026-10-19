@@ -7,10 +7,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Michroma&family=Barlow+Condensed:wght@500;600;800&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link rel="icon" href="favicon.svg?v=20261019s" type="image/svg+xml">
-<link rel="icon" href="favicon-32.png?v=20261019s" type="image/png" sizes="32x32">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=20261019s">
-<link rel="stylesheet" href="ui.css?v=20261019s">
+<link rel="icon" href="favicon.svg?v=20261019t" type="image/svg+xml">
+<link rel="icon" href="favicon-32.png?v=20261019t" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=20261019t">
+<link rel="stylesheet" href="ui.css?v=20261019t">
 <style>
   html, body { margin: 0; height: 100%; background: #000; color: var(--ink); overflow: hidden; font: 15px/1.5 var(--text); }
   canvas#c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; opacity: 0; transition: opacity 1s; }
@@ -608,14 +608,15 @@
   </div>
 </dialog>
 
-<script src="planets-data.js?v=20261019s"></script>
-<script src="space.js?v=20261019s"></script>
-<script src="weapons-lib.js?v=20261019s"></script>
-<script src="aw-data.js?v=20261019s"></script>
-<script src="aw-designs.js?v=20261019s"></script>
-<script src="sdf.js?v=20261019s"></script>
-<script src="hero-gl.js?v=20261019s"></script>
-<script src="ranks.js?v=20261019s"></script>
+<script src="planets-data.js?v=20261019t"></script>
+<script src="space.js?v=20261019t"></script>
+<script src="weapons-lib.js?v=20261019t"></script>
+<script src="aw-data.js?v=20261019t"></script>
+<script src="aw-designs.js?v=20261019t"></script>
+<script src="sdf.js?v=20261019t"></script>
+<script src="ships-sdf.js?v=20261019t"></script>
+<script src="hero-gl.js?v=20261019t"></script>
+<script src="ranks.js?v=20261019t"></script>
 <script>
 'use strict';
 /*
@@ -1056,6 +1057,9 @@ const atmoProg = program(FULL_VS, ATMO_FS);
 
 // the distance-field look (sdf.js): off draws the voxels; the switch and sliders are kept per viewer
 const sdfKit = SdfKit.create(gl, SLOTS);
+// crew ships as distance fields (ships-sdf.js): the class from the crew card, the finish from its shine
+const shipKit = ShipKit.create(gl);
+shipKit.prewarm();
 const LOOK_KEY = 'hashrush.look.v2';   // v1 saved "voxels" on every visit; v2 starts everyone on the standard
 const lookDefaults = () => ({ on: true, ...JSON.parse(JSON.stringify(SdfKit.DEFAULTS)) });   // the distance-field look is the standard
 const looks = (() => {
@@ -1626,7 +1630,7 @@ function addPlayerShip(o) {
   const model = awShipModel(o.crew);
   const s = {
     id, design: 'aw', weapon: o.weapon || DEFAULT_WEAPON, accent: o.color || '#ff8a3d', model, name: cleanName(o.tag) || o.wallet || 'Crew',
-    wallet: o.wallet, me: !!o.me, rank: o.rank || '', sizeK: 6 / Math.max(6, model.radius) * (1.35 + 0.12 * (model.level || 0)),
+    wallet: o.wallet, me: !!o.me, rank: o.rank || '', tpl: o.crewTemplate || 0, sizeK: 6 / Math.max(6, model.radius) * (1.35 + 0.12 * (model.level || 0)),
     incl: (r() - 0.5) * 1.5, node: r() * Math.PI * 2, angle: r() * Math.PI * 2, dirSign: r() < 0.5 ? -1 : 1,
     rCur: 0, rTarget: 0, shell: 0, firing: 0, queued: 0, aimDir: null,
     mode: 'orbit', vel: [0, 0, 0], roll: 0, pos: [0, 0, 0], fwd: [0, 0, 1], up: [0, 1, 0], right: [1, 0, 0],
@@ -2402,6 +2406,9 @@ function frame(now) {
   }
 
   // ships and projectiles
+  // crew ships in the distance-field look: drawn by ships-sdf.js (until their shader has compiled, the old way)
+  const sdfCrew = looks.on ? fleet.filter(s => s.wallet && shipKit.ready(s.tpl)) : [];
+  if (sdfCrew.length) shipKit.draw(sdfCrew.map(s => ({ pos: s.pos, right: s.right, up: s.up, fwd: s.fwd, size: shipScale(s) * 6, tpl: s.tpl, accent: s.accent })), VP, camW, LW, fy * H / 2);
   let drawShip = drawVox;
   if (looks.on) {
     const pr = sdfKit.progs().shipProg;
@@ -2416,7 +2423,7 @@ function frame(now) {
     gl.uniform1f(u.uT, clock);
     gl.uniform1f(u.uSNw, 0);
   }
-  for (const s of fleet) drawShip(s.model, s.right, s.up, s.fwd, shipScale(s), s.pos, VP, camW);
+  for (const s of fleet) if (!sdfCrew.includes(s)) drawShip(s.model, s.right, s.up, s.fwd, shipScale(s), s.pos, VP, camW);
   for (const pj of world.W.projs) {
     if (!pj.model) continue;
     let f = pj.phase === 'dig' ? scale(pj.to.n, -1) : pj.dir;
@@ -2500,6 +2507,6 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 </script>
-<script type="module" src="play.js?v=20261019s"></script>
+<script type="module" src="play.js?v=20261019t"></script>
 </body>
 </html>

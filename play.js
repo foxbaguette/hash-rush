@@ -1,8 +1,8 @@
 // The Hash Rush, live screen: the planet being mined on planetmining, every crew that attacked in
 // the last 30 minutes in orbit, the attack log replayed as it comes in, and the hangar where a
 // player changes their playertag and equips crew and weapon.
-import * as chain from './chain.js?v=20261019s';
-import * as gains from './gains.js?v=20261019s';
+import * as chain from './chain.js?v=20261019t';
+import * as gains from './gains.js?v=20261019t';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
@@ -91,7 +91,7 @@ function ensureShip(p) {
   const cur = S.ships.get(p.wallet);
   if (cur && cur.sig === sig) return cur.id;
   if (cur) planet.fleet.remove(cur.id);
-  const id = planet.fleet.addPlayer({ tag: p.playertag, color: colorOf(p), crew: crewOf(crewT), weapon: weaponOf(weaponT), wallet: p.wallet, me: p.wallet === S.account, rank: Ranks.badge(Ranks.hashesOf(p)) });
+  const id = planet.fleet.addPlayer({ tag: p.playertag, color: colorOf(p), crew: crewOf(crewT), crewTemplate: Number(p.equipped_crew_template) || 0, weapon: weaponOf(weaponT), wallet: p.wallet, me: p.wallet === S.account, rank: Ranks.badge(Ranks.hashesOf(p)) });
   S.ships.set(p.wallet, { id, sig, weapon: weaponOf(weaponT) });
   return id;
 }
