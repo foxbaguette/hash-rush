@@ -1,11 +1,13 @@
 // The Hash Rush, live screen: the planet being mined on planetmining, every crew that attacked in
 // the last 30 minutes in orbit, the attack log replayed as it comes in, and the hangar where a
 // player changes their playertag and equips crew and weapon.
-import * as chain from './chain.js?v=20261019n';
+import * as chain from './chain.js?v=20261019o';
+import * as gains from './gains.js?v=20261019o';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
 const fmt = n => Number(n).toLocaleString('en-US');
+const statOf = (p, name) => Number(((p && p.playerstats) || []).find(s => s.n === name)?.v || 0);
 const POLL_MS = 10000;          // how often the chain is read; what happened is replayed over the next 10 s
 const ACTIVE_SEC = 30 * 60;     // crews shown in orbit: attacked within the last 30 minutes
 const DEFAULT_CREW = { name: 'Stealth Mercenary', rarity: 'Abundant', element: 'Neutral', variant: 0, shine: 'Stone' };
@@ -160,6 +162,12 @@ function arrive() {
   S.seq = null;
   held.forEach((l, i) => setTimeout(() => playHit(l), 1200 + i * 350));
 }
+gains.init({
+  after: document.querySelector('.shade'),
+  target() { const i = document.querySelector('#hlBal .hl-icon'); if (!i) return null; const r = i.getBoundingClientRect(); return r.width ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; },
+  onShow(n, bump) { const el = $('hlBal'); if (!el) return; el.lastChild.textContent = fmt(n); if (bump) { el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); } },
+});
+planet.onImpact = (p, k, wallet) => { if (wallet && wallet === S.account) gains.impact(p, k); };
 function playHit(log) {
   if (!S.shown) return;
   if (S.away) { if (log.hash_found) S.away.hash = log; return; }   // the tab is hidden: nothing to animate, it catches up on return
@@ -171,6 +179,8 @@ function playHit(log) {
   // the same share of the game planet as of the contract's planet; leftovers carry over
   const exact = planet.total * dmg / S.shown.total + S.carry, n = Math.floor(exact);
   S.carry = exact - n;
+  // your own mining attack: its hashlings ride a beam from the hits up to your balance
+  if (log.wallet === S.account && S.firedMine && !log.simulated && Date.now() - S.firedAt < 120000) gains.expect(dmg, n);
   if (n > 0) planet.attack(n, ship ? ship.id : undefined);
   S.shown.destroyed = Math.min(S.shown.total, S.shown.destroyed + dmg);
   updateHud();
@@ -195,6 +205,7 @@ async function poll() {
   if (S.damage.size !== known && S.player) showMe();
   if (cfg) S.cooldown = Number(cfg.cooldown_sec) || 0;   // 0 until the contract with cooldowns is deployed; a failed read keeps the last value
   if (me && S.player && !S.firing) S.player = { ...me, last_action: chain.chainTime(me.last_action) >= chain.chainTime(S.player.last_action) ? me.last_action : S.player.last_action };
+  if (me) gains.sync(statOf(me, 'hashlings'));
   if (!tr) { $('busy').textContent = 'No planet is being mined right now.'; return; }
   if (!S.shown) loadPlanet(tr);
 
@@ -282,7 +293,9 @@ function showMe() {
   $('loadout').hidden = !p;
   if (p) {
     const hashes = Ranks.hashesOf(p);
-    $('who').innerHTML = '<small>Playing as' + (hashes ? ' · ' + Ranks.title(hashes) : '') + '</small><b style="color:' + colorOf(p) + '">' + esc(p.playertag) + Ranks.badge(hashes) + '</b>';
+    $('who').innerHTML = '<small>Playing as' + (hashes ? ' · ' + Ranks.title(hashes) : '') + '</small><b style="color:' + colorOf(p) + '">' + esc(p.playertag) + Ranks.badge(hashes) + '</b>' +
+      '<span class="hl" id="hlBal" title="Hashlings">' + gains.ICON + '<span>' + fmt(gains.shown ?? statOf(p, 'hashlings')) + '</span></span>';
+    gains.sync(statOf(p, 'hashlings'));
     const c = TPL.get(Number(p.equipped_crew_template)), w = TPL.get(Number(p.equipped_weapon_template));
     renderDock($('tCrew'), c, 'crew'); renderDock($('tArms'), w, 'arms');
     $('loDmg').textContent = c && w ? damageOf(c.card, c.shine, Number(p.equipped_crew_template)) + damageOf(w.card, w.shine, Number(p.equipped_weapon_template)) : '–';
@@ -460,6 +473,7 @@ $('attackBtn').addEventListener('click', async () => {
   try {
     await chain.attack(S.mine);
     S.firedAt = Date.now();
+    S.firedMine = S.mine;
     S.cdEnd = Date.now() + (S.cooldown + 1) * 1000;
     S.player = { ...S.player, last_action: new Date().toISOString().slice(0, 19) };   // the cooldown starts now
     say($('attackStatus'), '');   // the shots on screen say it
