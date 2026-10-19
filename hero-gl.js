@@ -325,9 +325,11 @@ void main() {
     }
   }
   /*
-    armory({ planet, list: [[weapon name, shine], ...], every?, delay?, spread?, nearScale?, shooters?, aimDir?, scatter?, viewDir? })
+    armory({ planet, list: [[weapon name, shine], ...], every?, delay?, spread?, nearScale?, shooters?, aimDir?, scatter?, viewDir?, burst? })
     Fires Alien Worlds weapons (aw-designs.js ARMS) from the scene's ships, one after another, at
     the planet's pit (or aimDir). Put the result in scene.fx. Craters are visual only here.
+    burst: { shots, gap } fires the weapon as the game does: a quick burst of single shots
+    (AWDesign.shotOf) from one ship at one spot, then waits 'every'.
   */
   function armory(cfg) {
     const P = cfg.planet, def = PlanetKit.PLANETS.find(x => x.name === P.name), sc = def.scale || 0.92, R = P.R || 26;
@@ -368,7 +370,8 @@ void main() {
       };
       const order = cfg.shooters || ships.map((_, i) => i);
       let who = -1, aim = null;
-      if (cfg.scatter) {
+      if (arm.left > 0) { who = arm.bWho % ships.length; aim = arm.bAim; }   // the rest of a burst: same ship, same spot
+      else if (cfg.scatter) {
         // a different spot every shot: anywhere on the side the viewer sees (within cfg.scatter
         // radians of the view direction), fired by whichever ship has a clear line to it
         const view = norm(cfg.viewDir || [0, 0, 1]), [vu, vv] = (() => { const a = Math.abs(view[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0], u = norm(cross(a, view)); return [u, cross(view, u)]; })();
@@ -386,7 +389,12 @@ void main() {
       if (who < 0) { arm.next = t + 0.15; return; }   // nobody has a clear shot right now
       const tag = { ship: who, aim };
       const A = arm.world.api(tag);
-      try { AWDesign.ARMS[name](A, AWDesign.makeTier(A, data.rarity, shine || 'Stone', data.class)); } catch (e) { console.error(name, e); }
+      const fire = cfg.burst ? AWDesign.shotOf(name) : AWDesign.ARMS[name];
+      try { fire(A, AWDesign.makeTier(A, data.rarity, shine || 'Stone', data.class)); } catch (e) { console.error(name, e); }
+      if (cfg.burst) {
+        if (!(arm.left > 0)) { arm.left = cfg.burst.shots; arm.bWho = who; arm.bAim = aim; }
+        if (--arm.left > 0) { arm.next = t + (cfg.burst.gap ?? 0.14); return; }
+      }
       arm.k++; arm.next = t + (cfg.every ?? 1.8);
     };
     return arm;

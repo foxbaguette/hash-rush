@@ -19,9 +19,14 @@ the hash. The game state lives on the `planetmining` contract (source is kept se
 - `aw-data.js`: Alien Worlds crew and weapon templates (cards, shines, attack, defense, art)
 - `aw-designs.js`: a ship design per crew card and an animation per weapon, scaled by rarity and shine
 - `weapons-lib.js`: the effects engine the weapons run on
-- `hero-gl.js`: WebGL renderer for the landing page hero
+- `sdf.js`: the distance-field look for the planet and ships (switch and sliders in the playertag menu)
+- `hero-gl.js`: WebGL renderer for the landing page hero and the hangar previews
 - `space.js`: the space backdrop
 - `ui.css`: shared styles (buttons and labels)
+
+## Live
+
+https://foxbaguette.github.io/hash-rush/
 
 ## Run locally
 

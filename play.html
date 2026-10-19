@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>The Hash Rush · Live</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -25,6 +25,28 @@
   .nums { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; color: var(--mute); }
   .nums b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
 
+  /* the look (voxels or distance fields) in your playertag menu, with sliders to try things out */
+  .menu-look { margin: 6px 0; padding: 10px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .menu-look small { display: block; margin-bottom: 8px; font: 600 11px var(--label); letter-spacing: 0.3em; text-transform: uppercase; color: var(--mute); }
+  .menu-look .seg { display: flex; justify-content: flex-end; border: 1px solid var(--line); }
+  .menu-look .seg button { flex: 1; font: 600 12px var(--label); letter-spacing: 0.16em; text-transform: uppercase; color: var(--mute); background: none; border: 0; padding: 10px 10px; cursor: pointer; white-space: nowrap; }
+  .menu-look .seg button:hover { color: var(--ink); }
+  .menu-look .seg button:focus-visible { outline: 1px solid var(--a); outline-offset: -2px; }
+  .menu-look .seg button[aria-pressed="true"] { color: #140700; background: linear-gradient(180deg, var(--a-hi), var(--a)); }
+  .menu-look .link { margin-top: 6px; }
+  .look-panel { position: fixed; z-index: 20; top: 110px; right: 40px; width: 300px; max-height: calc(100vh - 380px); min-height: 160px; overflow: auto; padding: 12px 16px 14px; background: var(--glass); border: 1px solid var(--line); box-shadow: 0 20px 40px #000b; }
+  .look-panel h3 { margin: 8px 0 10px; font: 600 11px var(--label); letter-spacing: 0.3em; text-transform: uppercase; color: var(--a-hi); }
+  .look-panel label { display: block; margin: 0 0 10px; font-size: 13px; color: var(--mute); }
+  .look-panel label b { float: right; color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; }
+  .look-panel input { display: block; width: 100%; margin: 4px 0 0; accent-color: var(--a); }
+  .look-panel .pick { display: flex; gap: 6px; margin: -2px 0 12px; }
+  .look-panel select { min-width: 0; flex: 1; font: 13px var(--text); color: var(--ink); background: #ffffff0d; border: 1px solid var(--line); padding: 6px; }
+  .look-panel select:last-child { flex: 0 0 100px; }
+  .look-panel select option { background: #111; }
+  .look-panel .row { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; color: var(--mute); font-size: 12px; }
+  .look-panel .row button { padding: 6px 0; }
+  .look-panel .head { position: sticky; top: -12px; z-index: 1; display: flex; justify-content: space-between; align-items: center; margin: -12px -16px 4px; padding: 10px 16px; background: #0b0908; border-bottom: 1px solid var(--line); font: 600 12px var(--label); letter-spacing: 0.3em; text-transform: uppercase; }
+
   /* you, top right */
   .me { position: fixed; right: 40px; top: 36px; display: flex; align-items: center; gap: 18px; }
   .who-wrap { position: relative; }
@@ -34,7 +56,7 @@
   .who.menu:hover b::after, .who.menu:focus-visible b::after { border-color: var(--ink); }
   .who[aria-expanded="true"] b::after { transform: rotate(225deg) translate(-3px, -3px); }
   .who:focus-visible { outline: 1px solid var(--a); outline-offset: 4px; }
-  .me-menu { position: absolute; right: 0; top: calc(100% + 10px); z-index: 10; min-width: 160px; padding: 8px 16px; text-align: right; background: var(--glass); border: 1px solid var(--line); box-shadow: 0 20px 40px #000b; animation: feed-in 0.2s cubic-bezier(.2, .8, .2, 1); }
+  .me-menu { position: absolute; right: 0; top: calc(100% + 10px); z-index: 10; min-width: 250px; padding: 8px 16px; text-align: right; background: var(--glass); border: 1px solid var(--line); box-shadow: 0 20px 40px #000b; animation: feed-in 0.2s cubic-bezier(.2, .8, .2, 1); }
   .me-menu .link { display: block; margin-left: auto; padding: 7px 0; font-size: 15px; }
   .who small { display: block; font: 600 11px var(--label); letter-spacing: 0.3em; text-transform: uppercase; color: var(--mute); }
   .who b { font: 400 17px var(--display); letter-spacing: 0.02em; }
@@ -145,7 +167,7 @@
   .switch input:checked { background: #ff6a1a33; border-color: var(--a); }
   .switch input:checked::after { transform: translateX(16px); background: var(--a); }
   .switch:has(input:checked) { color: var(--ink); }
-  .list { overflow-y: auto; padding: 0 20px 20px 34px; }
+  .list { overflow-y: auto; overflow-x: hidden; padding: 0 20px 20px 34px; }
   .item { display: grid; grid-template-columns: 44px 1fr auto; gap: 12px; align-items: center; width: 100%; text-align: left; background: none; border: 0; border-left: 2px solid transparent; color: var(--ink); cursor: pointer; padding: 8px 10px; margin: 2px 0; font: inherit; transition: background 0.2s, border-color 0.2s; }
   .item:hover { background: #ffffff0a; }
   .item[aria-current="true"] { background: #ff6a1a14; border-left-color: var(--a); }
@@ -201,10 +223,151 @@
   .hg-profile .count { display: flex; justify-content: space-between; margin: 8px 0 22px; font-size: 13px; color: var(--mute); }
   .rar-Abundant { color: #9aa0a6; } .rar-Common { color: #c9c3b8; } .rar-Rare { color: #5aa9ff; } .rar-Epic { color: #c66bff; } .rar-Legendary { color: #ffa53d; } .rar-Mythical { color: #ff4d6d; }
 
-  @media (max-width: 900px) {
-    .hud { left: 20px; top: 20px; } .me { right: 20px; top: 20px; } .feed { left: 20px; bottom: 90px; } .loadout { right: 20px; bottom: 20px; left: 20px; align-items: flex-start; text-align: left; } .dtile { width: 84px; height: 112px; } .dock { gap: 16px; }
-    .hg-body { grid-template-columns: 1fr; overflow-y: auto; } .list { max-height: 34vh; } .detail { grid-template-columns: 1fr; } .preview { min-height: 240px; }
-    .hg-foot { flex-wrap: wrap; gap: 14px; }
+
+  /* ---------------------------------------------------------------- every screen size
+     As in mobile games: the world in the middle, status along the top, the kill feed small and out
+     of the way, the cards and a big trigger in the thumb zone at the bottom. The safe-area insets
+     keep everything clear of notches, rounded corners and home bars. */
+  :root { --sat: env(safe-area-inset-top, 0px); --sar: env(safe-area-inset-right, 0px); --sab: env(safe-area-inset-bottom, 0px); --sal: env(safe-area-inset-left, 0px); }
+  button { touch-action: manipulation; }
+  .back { display: none; }
+
+  /* big screens (1440p, 4K): the interface grows with them, as game interfaces do */
+  @media (min-width: 2200px) and (min-height: 1200px) { .hud, .me, .feed, .loadout, dialog.hangar { zoom: 1.25; } .tag { font-size: 15px; } }
+  @media (min-width: 3200px) and (min-height: 1800px) { .hud, .me, .feed, .loadout, dialog.hangar { zoom: 1.7; } .tag { font-size: 20px; } }
+
+  /* tablets and small laptops: the same layout, tighter */
+  @media (max-width: 1100px) {
+    .hud { left: calc(24px + var(--sal)); top: calc(24px + var(--sat)); width: min(330px, calc(100vw - 48px)); }
+    .me { right: calc(24px + var(--sar)); top: calc(22px + var(--sat)); }
+    .look-panel { top: calc(96px + var(--sat)); right: calc(24px + var(--sar)); max-height: calc(100vh - 360px); }
+    .feed { left: calc(24px + var(--sal)); bottom: calc(28px + var(--sab)); width: min(380px, calc(100vw - 48px)); }
+    .loadout { right: calc(24px + var(--sar)); bottom: calc(24px + var(--sab)); }
+    .dtile { width: 92px; height: 124px; }
+    .dock { gap: 18px; }
+    .plate { gap: 14px; }
+    .plate .n b { font-size: 32px; }
+    .plate .btn.attack { min-width: 160px; padding: 18px 24px; font-size: 17px; }
+    .hg-top, .tabbar, .hg-foot { padding-left: 24px; padding-right: 24px; }
+    .tabbar { flex-wrap: wrap; gap: 0 20px; }
+    .steps { margin-left: 0; padding-bottom: 8px; }
+    .hg-body { grid-template-columns: 300px 1fr; }
+    .filters { padding-left: 20px; } .list { padding-left: 20px; }
+    .detail { grid-template-columns: 1fr; grid-template-rows: minmax(220px, 40%) 1fr; }
+    .info { padding: 20px 24px; }
+  }
+  /* tablets upright: the feed sits under the planet info, clear of the planet */
+  @media (max-width: 1100px) and (orientation: portrait) {
+    .feed { top: calc(150px + var(--sat)); bottom: auto; }
+    .feed .row:nth-child(n+5) { display: none; }
+  }
+
+  /* phones upright */
+  @media (max-width: 640px) and (orientation: portrait) {
+    html, body { font-size: 14px; }
+    .shade { background: linear-gradient(#000c 0%, #0000 24%), linear-gradient(#0000 60%, #000d 100%); }
+    .hud { left: calc(14px + var(--sal)); right: calc(14px + var(--sar)); top: calc(12px + var(--sat)); width: auto; }
+    .hud .eyebrow { font-size: 10px; }
+    .hud h1 { font-size: 22px; margin: 4px 0 0; }
+    .meter { height: 3px; margin: 10px 0 6px; }
+    .nums { font-size: 12px; }
+    .me { right: calc(14px + var(--sar)); top: calc(10px + var(--sat)); flex-direction: column; align-items: flex-end; gap: 6px; }
+    .who small { font-size: 9px; letter-spacing: 0.25em; }
+    .who b { font-size: 14px; }
+    .me .btn { padding: 8px 14px; font-size: 11px; letter-spacing: 0.16em; }
+    .look-panel { left: 0; right: 0; top: auto; bottom: 0; width: auto; max-height: 50vh; min-height: 0; z-index: 30; border-width: 1px 0 0;
+      padding: 12px calc(18px + var(--sar)) calc(16px + var(--sab)) calc(18px + var(--sal)); }
+    .look-panel input[type=range] { height: 26px; }
+    .feed { left: calc(14px + var(--sal)); top: calc(100px + var(--sat)); bottom: auto; width: calc(100vw - 28px); gap: 4px; }
+    .feed .row { font-size: 12px; gap: 6px; padding: 4px 8px 4px 6px; }
+    .feed .row .wchip { font-size: 9px; padding: 0 5px; max-width: 120px; }
+    .feed .row:nth-child(n+4) { display: none; }
+    .loadout { left: calc(12px + var(--sal)); right: calc(12px + var(--sar)); bottom: calc(12px + var(--sab)); align-items: stretch; gap: 8px; text-align: left; }
+    .loadout .status { order: -1; max-width: none; font-size: 12px; text-shadow: 0 1px 8px #000; }
+    .dock { justify-content: space-between; gap: 10px; }
+    .dtiles { order: 1; gap: 8px; }
+    .dtile { width: 72px; height: 98px; }
+    .dtile .t { left: 6px; right: 6px; bottom: 5px; } .dtile .t b { font-size: 11px; } .dtile .t span { font-size: 8px; letter-spacing: 0.12em; }
+    .dtile .shb { top: 5px; right: 5px; padding: 1px 4px; font-size: 8px; }
+    .plate { order: 2; flex-direction: column; align-items: flex-end; gap: 6px; }
+    .plate .n { display: flex; align-items: baseline; gap: 8px; }
+    .plate .n b { display: inline; font-size: 26px; }
+    .plate .btn.attack { min-width: 168px; padding: 20px 22px; font-size: 18px; }
+    .tag { font-size: 10px; }
+    .banner p { font-size: 15px; }
+    /* the hangar fills the screen: the list first, a card's detail on its own page with a way back */
+    dialog.hangar { width: 100vw; height: 100dvh; max-height: 100dvh; margin: 0; border: 0; }
+    .hg-top { padding: calc(12px + var(--sat)) 16px 4px; }
+    .hg-top h2 { font-size: 18px; margin-top: 4px; }
+    .tabbar { padding: 0 16px; }
+    .tabs { width: 100%; overflow-x: auto; }
+    .tabs button { padding: 12px 10px; font-size: 12px; letter-spacing: 0.2em; }
+    .tabs button::after { left: 10px; right: 10px; }
+    .steps { width: 100%; padding: 4px 0 10px; } .steps-lbl { display: none; }
+    .hg-body { grid-template-columns: 1fr; }
+    .list-col { border-right: 0; }
+    .filters { padding: 12px 16px 8px; }
+    .list { padding: 0 10px 16px; }
+    .item { padding: 10px 8px; }
+    .detail { display: none; }
+    .hg-body.detail-open .list-col { display: none; }
+    .hg-body.detail-open .detail { display: grid; grid-template-columns: 1fr; grid-template-rows: auto minmax(170px, 32vh) 1fr; min-height: 0; }
+    .back { display: block; text-align: left; padding: 12px 16px; font-size: 14px; }
+    .info { padding: 14px 16px 0; }
+    .info h3 { font-size: 20px; }
+    .shines { gap: 6px; margin: 14px 0; }
+    .shine { min-width: 0; flex: 1 1 calc(50% - 6px); padding: 9px 10px; }
+    .act { position: sticky; bottom: 0; z-index: 1; margin: 0 -16px 14px; padding: 12px 16px; background: linear-gradient(#0b090800, #0b0908f2 28%); }
+    .act .btn { flex: 1 1 100%; }
+    .hg-foot { flex-wrap: wrap; gap: 4px 18px; padding: 10px 16px calc(10px + var(--sab)); font-size: 13px; }
+    .hg-foot .status { flex-basis: 100%; }
+    .hg-profile { padding: 20px 16px; }
+  }
+
+  /* phones sideways: a slim row along the top, the feed bottom left, the trigger bottom right */
+  @media (max-height: 500px) and (orientation: landscape) {
+    .hud { left: calc(16px + var(--sal)); top: calc(10px + var(--sat)); width: min(280px, 38vw); }
+    .hud .eyebrow { font-size: 10px; }
+    .hud h1 { font-size: 20px; margin: 2px 0 0; }
+    .meter { margin: 8px 0 4px; height: 3px; }
+    .nums { font-size: 12px; }
+    .me { right: calc(16px + var(--sar)); top: calc(8px + var(--sat)); gap: 10px; }
+    .who small { font-size: 9px; } .who b { font-size: 14px; }
+    .me .btn { padding: 8px 14px; font-size: 11px; letter-spacing: 0.16em; }
+    .look-panel { position: fixed; top: 0; bottom: 0; right: 0; left: auto; width: min(320px, 42vw); max-height: none; min-height: 0; z-index: 30; border-width: 0 0 0 1px;
+      padding: calc(10px + var(--sat)) calc(16px + var(--sar)) 10px 16px; }
+    .feed { left: calc(16px + var(--sal)); bottom: calc(12px + var(--sab)); top: auto; width: min(330px, 42vw); gap: 4px; }
+    .feed .row { font-size: 12px; padding: 3px 8px 3px 6px; gap: 6px; }
+    .feed .row .wchip { font-size: 9px; padding: 0 5px; }
+    .feed .row:nth-child(n+4) { display: none; }
+    .loadout { left: auto; right: calc(16px + var(--sar)); bottom: calc(10px + var(--sab)); align-items: flex-end; text-align: right; gap: 6px; }
+    .loadout .status { font-size: 12px; max-width: 300px; }
+    .dock { gap: 12px; }
+    .dtile { width: 60px; height: 82px; }
+    .dtile .t { left: 5px; right: 5px; bottom: 4px; } .dtile .t b { font-size: 10px; } .dtile .t span { font-size: 8px; letter-spacing: 0.1em; }
+    .dtile .shb { top: 4px; right: 4px; padding: 1px 4px; font-size: 8px; }
+    .plate { gap: 10px; }
+    .plate .n b { font-size: 24px; }
+    .plate .btn.attack { min-width: 140px; padding: 16px 20px; font-size: 16px; }
+    .tag { font-size: 10px; }
+    .banner h2 { font-size: 30px; }
+    dialog.hangar { width: 100vw; height: 100dvh; max-height: 100dvh; margin: 0; border: 0; }
+    .hg-top { padding: calc(8px + var(--sat)) calc(20px + var(--sar)) 0 calc(20px + var(--sal)); }
+    .hg-top .eyebrow { display: none; }
+    .hg-top h2 { font-size: 16px; margin: 0; }
+    .tabbar { padding: 0 calc(20px + var(--sar)) 0 calc(20px + var(--sal)); }
+    .tabs button { padding: 8px 12px; font-size: 12px; }
+    .steps { padding: 0; } .steps-lbl { display: none; }
+    .hg-body { grid-template-columns: 240px 1fr; }
+    .detail { grid-template-columns: 1fr 1fr; grid-template-rows: none; }
+    .filters { padding: 8px 12px 6px calc(16px + var(--sal)); }
+    .list { padding: 0 10px 12px calc(16px + var(--sal)); }
+    .item { grid-template-columns: 32px 1fr auto; padding: 6px 8px; }
+    .item img { width: 32px; height: 44px; }
+    .info { padding: 12px calc(18px + var(--sar)) 12px 18px; }
+    .info h3 { font-size: 18px; }
+    .shines { margin: 10px 0; } .act { margin-bottom: 10px; }
+    .hg-foot { padding: 6px calc(20px + var(--sar)) calc(6px + var(--sab)) calc(20px + var(--sal)); gap: 18px; }
   }
 </style>
 </head></head>
@@ -223,11 +386,19 @@
 <div class="me" id="meBox">
   <div class="who-wrap">
     <button class="who" id="who" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="meMenu"></button>
-    <div class="me-menu" id="meMenu" hidden><button class="link" id="hangarBtn" type="button" hidden>Hangar</button><button class="link" id="signOut" type="button">Sign out</button></div>
+    <div class="me-menu" id="meMenu" hidden>
+      <button class="link" id="hangarBtn" type="button" hidden>Hangar</button>
+      <div class="menu-look"><small>Look</small>
+        <div class="seg" role="group" aria-label="Look"><button type="button" data-look="vox">Voxels</button><button type="button" data-look="sdf">Distance field</button></div>
+        <button class="link" id="lookTune" type="button" aria-expanded="false" aria-controls="lookPanel">Tune the look</button>
+      </div>
+      <button class="link" id="signOut" type="button">Sign out</button>
+    </div>
   </div>
   <button class="btn small" id="connectBtn" type="button" hidden>Connect wallet</button>
 </div>
 
+<div class="look-panel" id="lookPanel" hidden></div>
 <div class="feed" id="feed" aria-live="polite"></div>
 
 <div class="loadout" id="loadout" hidden>
@@ -269,6 +440,7 @@
         <div class="list" id="hgList" role="list"></div>
       </div>
       <div class="detail">
+        <button class="link back" id="dBack" type="button">‹ All crew</button>
         <div class="preview"><canvas id="hgPreview"></canvas></div>
         <div class="info">
           <div class="eyebrow" id="dRar"></div>
@@ -301,6 +473,7 @@
 <script src="weapons-lib.js"></script>
 <script src="aw-data.js"></script>
 <script src="aw-designs.js"></script>
+<script src="sdf.js"></script>
 <script src="hero-gl.js"></script>
 <script>
 'use strict';
@@ -615,6 +788,48 @@ void main() {
   o = vec4(texture(uScene, uv).rgb + texture(uB1, uv).rgb * 1.3 + texture(uB2, uv).rgb * 1.1, 1.0);
 }`;
 
+// the atmosphere: a shell of air around the planet that thins with height. Looking at the ground
+// the view crosses a little of it (more toward the rim); past the edge it crosses the densest air
+// at the limb and fades out higher up, so the rim glows without a drawn line. Lit by the sun, warm
+// along the day/night line. (The wide soft glow further out is the sky's halo.)
+const ATMO_FS = `#version 300 es
+precision highp float;
+uniform mat4 uVP;
+uniform vec3 uCam, uR, uU, uB, uTint, uSunW;
+uniform vec2 uTan, uRes;
+uniform float uRp, uRa, uAtm, uFall;   // uFall: how fast the air thins with height (high = a crisp rim)
+layout(location = 0) out vec4 o;
+layout(location = 1) out vec4 oGlow;
+void main() {
+  vec2 ndc = gl_FragCoord.xy / uRes * 2.0 - 1.0;
+  vec3 rd = normalize(uR * ndc.x * uTan.x + uU * ndc.y * uTan.y - uB);
+  float b = dot(uCam, rd), cc = dot(uCam, uCam);
+  float dA = b * b - (cc - uRa * uRa);
+  if (dA <= 0.0) discard;
+  float sA = sqrt(dA), t0 = max(-b - sA, 0.0), t1 = -b + sA;
+  float dP = b * b - (cc - uRp * uRp);
+  if (dP > 0.0) t1 = min(t1, -b - sqrt(dP));   // the view stops at the ground
+  if (t1 <= t0) discard;
+  float H = uRa - uRp, dt = (t1 - t0) / 12.0, od = 0.0;
+  vec3 light = vec3(0.0);
+  for (int i = 0; i < 12; i++) {
+    vec3 p = uCam + rd * (t0 + (float(i) + 0.5) * dt);
+    float r = length(p), hh = clamp((r - uRp) / H, 0.0, 1.0);
+    float w = exp(-hh * uFall) * (1.0 - hh * hh) * dt;   // thinner with height, nothing at the top
+    float sun = dot(p / r, uSunW);
+    float lit = 0.12 + 0.88 * smoothstep(-0.35, 0.5, sun);
+    float dusk = exp(-sun * sun * 14.0) * 0.55;
+    od += w; light += mix(uTint, vec3(1.0, 0.55, 0.3), dusk) * lit * w;
+  }
+  float even = uFall / (1.0 - exp(-uFall));   // the same haze looking straight down, whatever the falloff
+  float a = (1.0 - exp(-0.14 * od / H * even)) * uAtm;
+  vec3 col = light / max(od, 1e-6);
+  o = vec4(col * a * 1.1, a * 0.5);
+  oGlow = vec4(col * a * 0.18, a * 0.5);
+  vec4 clip = uVP * vec4(uCam + rd * t0, 1.0);
+  gl_FragDepth = clip.z / clip.w * 0.5 + 0.5;   // ships in front of the air are not covered by it
+}`;
+
 function compile(type, src) {
   const s = gl.createShader(type);
   gl.shaderSource(s, src); gl.compileShader(s);
@@ -638,6 +853,21 @@ const alphaProg = program(PART_VS, PART_ALPHA_FS);
 const downProg = program(FULL_VS, DOWN_FS);
 const blurProg = program(FULL_VS, BLUR_FS);
 const compProg = program(FULL_VS, COMP_FS);
+const atmoProg = program(FULL_VS, ATMO_FS);
+
+// the distance-field look (sdf.js): off draws the voxels; the switch and sliders are kept per viewer
+const sdfKit = SdfKit.create(gl, SLOTS);
+const LOOK_KEY = 'hashrush.look.v1';
+const lookDefaults = () => ({ on: false, ...JSON.parse(JSON.stringify(SdfKit.DEFAULTS)) });
+const looks = (() => {
+  const d = lookDefaults();
+  try {
+    const s = JSON.parse(localStorage.getItem(LOOK_KEY));
+    if (s) return { ...d, ...s, planet: { ...d.planet, ...s.planet }, ship: { ...d.ship, ...s.ship } };
+  } catch { /* no storage: the defaults */ }
+  return d;
+})();
+const saveLooks = () => { try { localStorage.setItem(LOOK_KEY, JSON.stringify(looks)); } catch { /* fine */ } };
 
 const sky = SpaceSky.create(gl);   // galaxies, nebulae, stars (baked once)
 const IDX = new Uint8Array([0,2,6, 0,6,3, 0,3,5, 0,5,1, 0,1,4, 0,4,2]);   // 3 faces around corner 0
@@ -807,10 +1037,53 @@ function build() {
   removed = 0; deepest = 1; scanPtr = 0;
   sites.length = 0;
   dMask = []; dHeat = [];
+  sdfDens = null;
   resetVolleys();
 }
 
+// the planet as a distance field: how solid each cell is (melting cells fade out) and its colour
+let sdfDens = null, sdfSoft = null, sdfSoftFor = null, sdfDensTex = null, sdfSoftTex = null, sdfColTex = null, dDens = [];
+function sdfPlanetBuild() {
+  sdfDens = new Uint8Array(N * NN); sdfSoft = new Uint8Array(N * NN);
+  const col = new Uint8Array(N * NN * 4), solid = new Uint8Array(N * NN);
+  for (let c = 0; c < mask.length; c++) {
+    if (mask[c] === EMPTY) continue;
+    sdfDens[c] = 255; solid[c] = 1;
+    col.set(colourOf(c), c * 4);
+  }
+  sdfKit.dilate(col, solid, [N, N, N]);
+  gl.activeTexture(gl.TEXTURE3); sdfDensTex = sdfKit.tex3d(sdfDensTex, [N, N, N], gl.R8, gl.RED, sdfDens, false);
+  gl.activeTexture(gl.TEXTURE4); sdfColTex = sdfKit.tex3d(sdfColTex, [N, N, N], gl.RGBA8, gl.RGBA, col, true);
+  gl.activeTexture(gl.TEXTURE0);
+  dDens = [];
+  sdfSoftFor = null;
+}
+// the melted copy: all of it when the slider moves, otherwise only around the cells that changed
+function sdfMelt() {
+  const soft = looks.planet.soft;
+  if (sdfSoftFor !== soft) {
+    sdfKit.blur(sdfDens, sdfSoft, [N, N, N], soft);
+    gl.activeTexture(gl.TEXTURE5); sdfSoftTex = sdfKit.tex3d(sdfSoftTex, [N, N, N], gl.R8, gl.RED, sdfSoft, true);
+    gl.activeTexture(gl.TEXTURE0);
+    sdfSoftFor = soft;
+  }
+  for (let s = 0; s < SLOTS; s++) {
+    const sl = slots[s];
+    if (!sl) continue;
+    const k = Math.min(1, (clock - sl.t) / MELT), v = Math.round(255 * (1 - k * k * (3 - 2 * k)));
+    for (const c of sl.list) if (sdfDens[c] !== v) { sdfDens[c] = v; addBox(dDens, cellBox(c, 0)); }
+  }
+  const reach = sdfKit.blurReach(soft);
+  for (const b of dDens) {
+    uploadBox(b, gl.TEXTURE3, sdfDensTex, sdfDens, gl.RED, gl.UNSIGNED_BYTE);
+    const e = [Math.max(0, b[0] - reach), Math.max(0, b[1] - reach), Math.max(0, b[2] - reach), Math.min(N - 1, b[3] + reach), Math.min(N - 1, b[4] + reach), Math.min(N - 1, b[5] + reach)];
+    sdfKit.blur(sdfDens, sdfSoft, [N, N, N], soft, e);
+    uploadBox(e, gl.TEXTURE5, sdfSoftTex, sdfSoft, gl.RED, gl.UNSIGNED_BYTE);
+  }
+  dDens = [];
+}
 function uploadAll() {
+  if (looks.on) sdfPlanetBuild(); else sdfDens = null;
   gl.activeTexture(gl.TEXTURE0);
   gl.bindTexture(gl.TEXTURE_3D, maskTex);
   gl.texSubImage3D(gl.TEXTURE_3D, 0, 0, 0, 0, N, N, N, gl.RED_INTEGER, gl.UNSIGNED_BYTE, mask);
@@ -964,7 +1237,7 @@ function warm(c, col, radius = GLOW) {
 
 function retire(s) {
   const list = slots[s].list;
-  for (const c of list) { mask[c] = EMPTY; listRemove(c); maskBox(cellBox(c, 0)); }
+  for (const c of list) { mask[c] = EMPTY; listRemove(c); maskBox(cellBox(c, 0)); if (sdfDens) { sdfDens[c] = 0; addBox(dDens, cellBox(c, 0)); } }
   slots[s] = null;
   slotT[s] = -1e4;
 }
@@ -1032,7 +1305,7 @@ function voxModel(fill) {
   const b2 = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b2); gl.bufferData(gl.ARRAY_BUFFER, col, gl.STATIC_DRAW);
   gl.enableVertexAttribArray(1); gl.vertexAttribIPointer(1, 4, gl.UNSIGNED_BYTE, 0, 0); gl.vertexAttribDivisor(1, 1);
   gl.bindVertexArray(null);
-  return { vao, count: v.length, nose: zmax + 1 };
+  return { vao, count: v.length, nose: zmax + 1, pos, col };
 }
 const MODELS = Object.fromEntries(Object.entries(WeaponKit.MODEL_DEFS).map(([k, f]) => [k, voxModel(f)]));
 const shipModels = new Map();
@@ -1269,6 +1542,8 @@ function launchVolley(v) {
     if (list.length) { const e = world.api(null), t = surfaceTarget(site.d); e.flash(t.p, 0.3, [1, 0.85, 0.6]); }
     return true;
   }
+  // one shot at a time: shots that waited (for a crater or a clear line) leave one after another, never together
+  if (ship.lastShot != null && simT - ship.lastShot < SHOT_GAP) { v.deadline = Math.max(v.deadline, ship.lastShot + SHOT_GAP + 1.2); return false; }
   // aim at the crater the sequence is actually digging now. A ship still firing at another
   // crater finishes that first; then it moves over and fires once nothing is in the way.
   const late = simT >= v.deadline - 0.1;
@@ -1294,6 +1569,7 @@ function launchVolley(v) {
   };
   active.add(tag);
   ship.firing++;
+  ship.lastShot = simT;
   wp.fire(world.api(tag));
   if (!tag.items) finish(tag);
   return true;
@@ -1425,17 +1701,125 @@ pIdx = 0; def = PLANETS[0];
 showPlanetInfo();
 planet.set(1, Infinity);
 
-canvas.addEventListener('pointerdown', e => { dragging = true; lx = e.clientX; ly = e.clientY; canvas.setPointerCapture(e.pointerId); canvas.classList.add('drag'); });
+// one finger (or the mouse) turns the view, two fingers pinch to zoom
+const touches = new Map();
+let pinch = 0;
+canvas.addEventListener('pointerdown', e => {
+  touches.set(e.pointerId, [e.clientX, e.clientY]);
+  canvas.setPointerCapture(e.pointerId);
+  if (touches.size === 1) { dragging = true; lx = e.clientX; ly = e.clientY; canvas.classList.add('drag'); } else { dragging = false; pinch = 0; }
+});
 canvas.addEventListener('pointermove', e => {
+  if (!touches.has(e.pointerId)) return;
+  touches.set(e.pointerId, [e.clientX, e.clientY]);
+  if (touches.size >= 2) {
+    const [a, b] = [...touches.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]);
+    if (pinch && d > 0) userZoom = Math.max(0.35, Math.min(3, userZoom * pinch / d));
+    pinch = d;
+    return;
+  }
   if (!dragging) return;
   yaw += (e.clientX - lx) * 0.006;
   pitch = Math.max(-1.45, Math.min(1.45, pitch + (e.clientY - ly) * 0.006));
   lx = e.clientX; ly = e.clientY;
 });
-const endDrag = () => { dragging = false; canvas.classList.remove('drag'); };
+const endDrag = e => {
+  touches.delete(e.pointerId); pinch = 0;
+  if (touches.size === 1) { const [p] = touches.values(); dragging = true; lx = p[0]; ly = p[1]; }   // back to turning with the finger left
+  else { dragging = false; canvas.classList.remove('drag'); }
+};
 canvas.addEventListener('pointerup', endDrag);
 canvas.addEventListener('pointercancel', endDrag);
 canvas.addEventListener('wheel', e => { e.preventDefault(); userZoom = Math.max(0.35, Math.min(3, userZoom * Math.exp(e.deltaY * 0.001))); }, { passive: false });
+
+// the look switch and its sliders
+const LOOK_SLIDERS = [
+  ['Planet', 'planet', [['smooth', 'Blocks to smooth', 0, 1, 0.01], ['soft', 'Melt', 0, 2, 0.05], ['round', 'Block rounding', 0, 0.5, 0.01],
+    ['noise', 'Surface noise', 0, 0.5, 0.01], ['colBlend', 'Colour blend', 0, 1, 0.01], ['sphere', 'Round shading', 0, 1, 0.01],
+    ['tex', 'Ground texture', 0, 1, 0.01], ['texScale', 'Texture scale', 0.3, 3, 0.05], ['slope', 'Rock on slopes', 0, 1, 0.01], ['gloss', 'Gloss', 0, 1, 0.01]]],
+  ['Ships', 'ship', [['smooth', 'Blocks to smooth', 0, 1, 0.01], ['soft', 'Melt', 0, 2, 0.05], ['round', 'Block rounding', 0, 0.5, 0.01],
+    ['noise', 'Surface noise', 0, 0.5, 0.01], ['colBlend', 'Colour blend', 0, 1, 0.01], ['gloss', 'Gloss', 0, 1, 0.01]]],
+  ['Render', null, [['step', 'Step size (smaller is finer, slower)', 0.15, 0.8, 0.01], ['ao', 'Shade in creases', 0, 1.5, 0.01], ['atmo', 'Atmosphere (both looks)', 0, 2, 0.01], ['atmoWide', 'Atmosphere width', 0.5, 4, 0.05],
+    ['atmoEdge', 'Rim distance (where the air starts)', 0.85, 1.15, 0.005], ['atmoSoft', 'Rim softness', 0, 1, 0.01]]],
+];
+// while the panel is open, one ship turns close up on the right, to see the details while tuning
+let lineupOn = true;
+const SHOW = { crew: Math.max(0, AW_DATA.crew.findIndex(g => g.name === 'Storm Giant')), shine: 'Stone' };
+function drawShowcase(draw, VP, camW, viewRot, fovy, aspect) {
+  const g = AW_DATA.crew[SHOW.crew];
+  const m = awShipModel({ name: g.name, rarity: g.rarity, element: g.variants[0].element, variant: 0, shine: SHOW.shine });
+  const R = toObj(viewRot, [1, 0, 0]), Up = toObj(viewRot, [0, 1, 0]), B = toObj(viewRot, [0, 0, 1]);
+  const d = dist * 0.3, ty = Math.tan(fovy / 2), tx = ty * aspect;
+  // right of centre, in front of the planet (left of the panel on wide screens), close up
+  const sideways = innerHeight <= 500 && aspect > 1;   // phone sideways: the panel takes the right side
+  const x = sideways ? -0.12 : aspect > 1.2 ? 0.27 : aspect > 0.9 ? 0.25 : 0, y = sideways ? 0 : aspect > 1.2 ? -0.02 : aspect > 0.9 ? -0.3 : 0.3;
+  const p = add(sub(camW, scale(B, d)), add(scale(R, x * tx * d), scale(Up, y * ty * d)));
+  const tilt = 0.4, Up2 = norm(add(scale(Up, Math.cos(tilt)), scale(B, Math.sin(tilt)))), F2 = cross(R, Up2), ang = clock * 0.5;
+  const fw = norm(add(scale(R, Math.cos(ang)), scale(F2, Math.sin(ang))));
+  draw(m, cross(Up2, fw), Up2, fw, Math.min(ty, tx * 0.9) * d * 0.42 / (m.radius || 8), p, VP, camW);
+}
+const lookPanel = $('lookPanel');
+function renderLookPanel() {
+  const panel = $('lookPanel');
+  panel.textContent = '';
+  const head = document.createElement('div'), done = document.createElement('button');
+  head.className = 'head'; head.textContent = 'Tune the look';
+  done.type = 'button'; done.className = 'link'; done.textContent = 'Done';
+  done.addEventListener('click', () => showLookPanel(false));
+  head.appendChild(done); panel.appendChild(head);
+  for (const [title, group, list] of LOOK_SLIDERS) {
+    const h3 = document.createElement('h3'); h3.textContent = title; panel.appendChild(h3);
+    if (group === 'ship') {   // a ship to look at while tuning, and which one
+      const l = document.createElement('label'), cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.checked = lineupOn; cb.style.cssText = 'display:inline; width:auto; margin:0 8px 0 0; vertical-align:-2px';
+      cb.addEventListener('change', () => { lineupOn = cb.checked; });
+      l.append(cb, 'Show a ship close up');
+      panel.appendChild(l);
+      const pick = document.createElement('div'), ship = document.createElement('select'), shine = document.createElement('select');
+      pick.className = 'pick';
+      AW_DATA.crew.forEach((g, i) => ship.add(new Option(g.name + ' · ' + g.rarity, i, false, i === SHOW.crew)));
+      for (const s of ['Stone', 'Gold', 'Stardust', 'Antimatter', 'XDimension']) shine.add(new Option(s, s, false, s === SHOW.shine));
+      ship.addEventListener('change', () => { SHOW.crew = Number(ship.value); });
+      shine.addEventListener('change', () => { SHOW.shine = shine.value; });
+      ship.setAttribute('aria-label', 'Ship'); shine.setAttribute('aria-label', 'Shine');
+      pick.append(ship, shine);
+      panel.appendChild(pick);
+    }
+    for (const [key, label, min, max, step] of list) {
+      const obj = group ? looks[group] : looks, l = document.createElement('label'), v = document.createElement('b'), inp = document.createElement('input');
+      Object.assign(inp, { type: 'range', min, max, step, value: obj[key] });
+      v.textContent = (+obj[key]).toFixed(2);
+      inp.addEventListener('input', () => { obj[key] = Number(inp.value); v.textContent = obj[key].toFixed(2); saveLooks(); });
+      l.append(label, v, inp);
+      panel.appendChild(l);
+    }
+  }
+  const row = document.createElement('div'), reset = document.createElement('button');
+  row.className = 'row'; row.textContent = 'Only on this device';
+  reset.type = 'button'; reset.textContent = 'Reset';
+  reset.addEventListener('click', () => { Object.assign(looks, { ...lookDefaults(), on: looks.on }); saveLooks(); renderLookPanel(); });
+  // copy the settings (to make them someone's defaults)
+  const copy = document.createElement('button');
+  copy.type = 'button'; copy.textContent = 'Copy settings';
+  copy.addEventListener('click', async () => {
+    const text = JSON.stringify({ planet: looks.planet, ship: looks.ship, step: looks.step, ao: looks.ao, atmo: looks.atmo });
+    try { await navigator.clipboard.writeText(text); copy.textContent = 'Copied'; } catch { prompt('Copy these settings', text); }
+    setTimeout(() => { copy.textContent = 'Copy settings'; }, 1500);
+  });
+  row.append(copy, reset); panel.appendChild(row);
+}
+function setLook(on) {
+  looks.on = on; saveLooks();
+  if (on && !sdfDens && total) sdfPlanetBuild();
+  for (const b of document.querySelectorAll('[data-look]')) b.setAttribute('aria-pressed', String((b.dataset.look === 'sdf') === on));
+}
+for (const b of document.querySelectorAll('[data-look]')) b.addEventListener('click', () => setLook(b.dataset.look === 'sdf'));
+function showLookPanel(open) {
+  $('lookPanel').hidden = !open; $('lookTune').setAttribute('aria-expanded', String(open));
+  if (open) renderLookPanel();
+}
+$('lookTune').addEventListener('click', () => { $('meMenu').hidden = true; $('who').setAttribute('aria-expanded', 'false'); showLookPanel($('lookPanel').hidden); });
+setLook(looks.on);
 
 function resize() {
   const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
@@ -1453,6 +1837,51 @@ function drawVox(model, r, u, f, s, p, VP, camW) {
   gl.uniform3fv(voxProg.u.uLight, [dot(r, LW), dot(u, LW), dot(f, LW)]);
   gl.bindVertexArray(model.vao);
   gl.drawElementsInstanced(gl.TRIANGLES, 18, gl.UNSIGNED_BYTE, 0, model.count);
+}
+// the distance-field versions: the object's box is drawn and the shader finds the surface inside
+function sdfLookUniforms(pr, L) {
+  const u = pr.u;
+  gl.uniform1f(u.uSmooth, L.smooth); gl.uniform1f(u.uSoft, L.soft); gl.uniform1f(u.uRound, L.round);
+  gl.uniform1f(u.uNoise, L.noise); gl.uniform1f(u.uColBlend, L.colBlend); gl.uniform1f(u.uSphere, L.sphere);
+  gl.uniform1f(u.uGloss, L.gloss ?? 1); gl.uniform1f(u.uTex, L.tex || 0); gl.uniform1f(u.uTexScale, L.texScale || 1); gl.uniform1f(u.uSlope, L.slope || 0);
+  gl.uniform1f(u.uStep, looks.step); gl.uniform1f(u.uAO, looks.ao); gl.uniform1f(u.uT, clock);
+}
+function drawPlanetSdf(VP, Spin, camW) {
+  if (!sdfDens) sdfPlanetBuild();
+  sdfMelt();
+  const pr = sdfKit.progs().planetProg, u = pr.u;
+  gl.useProgram(pr.p);
+  gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_3D, sdfSoftTex);
+  gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_3D, sdfColTex);
+  gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_3D, sdfDensTex);
+  gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_3D, heatCTex);
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_3D, heatTex);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_3D, maskTex);
+  gl.uniform1i(u.uMask, 0); gl.uniform1i(u.uHeatT, 1); gl.uniform1i(u.uHeatC, 2); gl.uniform1i(u.uDens, 3); gl.uniform1i(u.uCol, 4); gl.uniform1i(u.uSoftD, 5);
+  gl.uniformMatrix4fv(u.uMVP, false, mul(VP, Spin));
+  gl.uniform3fv(u.uCamM, toObj(Spin, camW));
+  gl.uniform3fv(u.uLight, toObj(Spin, LW));
+  gl.uniform3f(u.uBoxMin, -1, -1, -1); gl.uniform3f(u.uBoxMax, 1, 1, 1);
+  gl.uniform3f(u.uOrigin, -1, -1, -1); gl.uniform3f(u.uDims, N, N, N); gl.uniform1f(u.uCell, 2 / N);
+  gl.uniform1f(u.uBound, Math.min(Math.sqrt(3), (R * EXT + 1.5) / C));
+  sdfLookUniforms(pr, looks.planet);
+  gl.bindVertexArray(emptyVao);
+  gl.drawArrays(gl.TRIANGLES, 0, 36);
+}
+function drawVoxSdf(model, r, up, f, s, p, VP, camW) {
+  if (!model.sdf) model.sdf = sdfKit.modelTextures(model.pos, model.col);
+  sdfKit.modelSoft(model.sdf, looks.ship.soft);
+  const m = model.sdf, u = sdfKit.progs().shipProg.u, dc = sub(camW, p);
+  gl.uniformMatrix4fv(u.uMVP, false, mul(VP, frameM(r, up, f, s, p)));
+  gl.uniform3fv(u.uCamM, [dot(r, dc) / s, dot(up, dc) / s, dot(f, dc) / s]);
+  gl.uniform3fv(u.uLight, [dot(r, LW), dot(up, LW), dot(f, LW)]);
+  gl.uniform3fv(u.uBoxMin, m.box[0]); gl.uniform3fv(u.uBoxMax, m.box[1]);
+  gl.uniform3fv(u.uOrigin, m.origin); gl.uniform3fv(u.uDims, m.dims); gl.uniform1f(u.uCell, 1);
+  gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_3D, m.soft);
+  gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_3D, m.col);
+  gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_3D, m.dens);
+  gl.activeTexture(gl.TEXTURE0);
+  gl.drawArrays(gl.TRIANGLES, 0, 36);
 }
 const pData = new Float32Array(5000 * 8);
 const partVao = gl.createVertexArray(), partBuf = gl.createBuffer();
@@ -1618,7 +2047,8 @@ function frame(now) {
   sky.draw(mul(P, viewRot), 2 * Math.tan(fovy / 2) / H, clock, {
     c: [W / 2, H / 2],
     rad: PRg * fy / Math.sqrt(Math.max(1e-4, dist * dist - PRg * PRg)) * H / 2,
-    atm: total ? 0.35 + 0.65 * (total - removed) / total : 0,
+    atm: total ? (0.35 + 0.65 * (total - removed) / total) * looks.atmo : 0,
+    wide: looks.atmoWide,
     tint: HALOS[def.name] || [0.45, 0.65, 1.0],
     sun: norm([sunV[0], sunV[1], 0]).slice(0, 2),
   });
@@ -1628,11 +2058,14 @@ function frame(now) {
   // planet
   uploadList();
   flushUploads();
+  let u;
+  if (looks.on) drawPlanetSdf(VP, Spin, camW);
+  else {
   gl.useProgram(planetProg.p);
   gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_3D, heatCTex);
   gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_3D, heatTex);
   gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_3D, maskTex);
-  let u = planetProg.u;
+  u = planetProg.u;
   gl.uniform1i(u.uMask, 0); gl.uniform1i(u.uHeatT, 1); gl.uniform1i(u.uHeatC, 2);
   gl.uniformMatrix4fv(u.uMVP, false, mul(VP, Spin));
   gl.uniform3fv(u.uCam, toObj(Spin, camW));
@@ -1644,20 +2077,55 @@ function frame(now) {
   gl.uniform1f(u.uSNw, 0.75);
   gl.bindVertexArray(planetVao);
   gl.drawElementsInstanced(gl.TRIANGLES, 18, gl.UNSIGNED_BYTE, 0, listLen);
+  }
 
   // ships and projectiles
-  gl.useProgram(voxProg.p);
-  u = voxProg.u;
-  gl.uniform1f(u.uT, clock);
-  gl.uniform1f(u.uSNw, 0);
-  for (const s of fleet) drawVox(s.model, s.right, s.up, s.fwd, shipScale(s), s.pos, VP, camW);
+  let drawShip = drawVox;
+  if (looks.on) {
+    const pr = sdfKit.progs().shipProg;
+    gl.useProgram(pr.p);
+    sdfLookUniforms(pr, looks.ship);
+    gl.uniform1i(pr.u.uDens, 3); gl.uniform1i(pr.u.uCol, 4); gl.uniform1i(pr.u.uSoftD, 5); gl.uniform1f(pr.u.uBound, 0);
+    gl.bindVertexArray(emptyVao);
+    drawShip = drawVoxSdf;
+  } else {
+    gl.useProgram(voxProg.p);
+    u = voxProg.u;
+    gl.uniform1f(u.uT, clock);
+    gl.uniform1f(u.uSNw, 0);
+  }
+  for (const s of fleet) drawShip(s.model, s.right, s.up, s.fwd, shipScale(s), s.pos, VP, camW);
   for (const pj of world.W.projs) {
     if (!pj.model) continue;
     let f = pj.phase === 'dig' ? scale(pj.to.n, -1) : pj.dir;
     const up0 = Math.abs(f[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0];
     let r = norm(cross(up0, f)), up = cross(f, r);
     if (pj.spin) { const a = simT * pj.spin; r = rotateAround(r, f, a); up = rotateAround(up, f, a); }
-    drawVox(MODELS[pj.model], r, up, f, pj.scale || 0.02, pj.pos, VP, camW);
+    drawShip(MODELS[pj.model], r, up, f, pj.scale || 0.02, pj.pos, VP, camW);
+  }
+  if (lineupOn && !lookPanel.hidden) drawShowcase(drawShip, VP, camW, viewRot, fovy, aspect);
+
+  // the atmosphere over the planet (the halo around it is drawn with the sky)
+  const atm = total ? (0.35 + 0.65 * (total - removed) / total) * looks.atmo : 0;
+  if (atm > 0) {
+    gl.useProgram(atmoProg.p);
+    u = atmoProg.u;
+    gl.uniformMatrix4fv(u.uVP, false, VP);
+    gl.uniform3fv(u.uCam, camW);
+    gl.uniform3fv(u.uR, toObj(viewRot, [1, 0, 0])); gl.uniform3fv(u.uU, toObj(viewRot, [0, 1, 0])); gl.uniform3fv(u.uB, toObj(viewRot, [0, 0, 1]));
+    gl.uniform2f(u.uTan, Math.tan(fovy / 2) * aspect, Math.tan(fovy / 2));
+    gl.uniform2f(u.uRes, W, H);
+    gl.uniform1f(u.uRp, PRg * looks.atmoEdge); gl.uniform1f(u.uRa, PRg * (looks.atmoEdge + 0.1 * looks.atmoWide));
+    gl.uniform1f(u.uFall, 12 - 10.5 * looks.atmoSoft);
+    gl.uniform3fv(u.uTint, HALOS[def.name] || [0.45, 0.65, 1.0]);
+    gl.uniform3fv(u.uSunW, LW);
+    gl.uniform1f(u.uAtm, atm);
+    gl.depthMask(false);
+    gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    gl.bindVertexArray(emptyVao);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.disable(gl.BLEND);
+    gl.depthMask(true);
   }
 
   // particles: smoke first (alpha), then glow (additive); neither writes depth

@@ -106,7 +106,7 @@ uniform mat4 uInvVP;     // inverse of projection * view rotation
 uniform float uPix;      // angular size of one pixel
 uniform float uT;
 uniform vec2 uC;         // planet halo: centre (px), radius (px), strength, tint, sun direction on screen
-uniform float uRad, uAtm;
+uniform float uRad, uAtm, uWide;   // uWide: how far the halo reaches (1 = a tenth of the radius)
 uniform vec3 uTint;
 uniform vec2 uSun;
 in vec2 vNdc;
@@ -148,7 +148,7 @@ void main() {
   float dd = length(dv);
   float x = max(dd - uRad, 0.0) / max(uRad, 1.0);
   float lit = 0.35 + 0.65 * max(dot(dv / max(dd, 1.0), uSun), 0.0);
-  col += uTint * exp(-x * 11.0) * 0.4 * lit * uAtm;
+  col += uTint * exp(-x * 11.0 / uWide) * 0.4 * lit * uAtm;
   // dither against banding in the dark gradients
   col += (h3(vec3(gl_FragCoord.xy, uT * 60.0)) - 0.5) / 255.0;
   o = vec4(col, 1.0);
@@ -214,7 +214,7 @@ void main() {
     gl.bindVertexArray(null);
 
     const U = n => gl.getUniformLocation(sky, n);
-    const loc = { sky: U('uSky'), inv: U('uInvVP'), pix: U('uPix'), t: U('uT'), c: U('uC'), rad: U('uRad'), atm: U('uAtm'), tint: U('uTint'), sun: U('uSun') };
+    const loc = { sky: U('uSky'), inv: U('uInvVP'), pix: U('uPix'), t: U('uT'), c: U('uC'), rad: U('uRad'), atm: U('uAtm'), wide: U('uWide'), tint: U('uTint'), sun: U('uSun') };
     return {
       // projRot: projection * view rotation (no translation); pix: radians per pixel
       draw(projRot, pix, t, halo) {
@@ -228,6 +228,7 @@ void main() {
         gl.uniform2fv(loc.c, halo ? halo.c : [0, 0]);
         gl.uniform1f(loc.rad, halo ? halo.rad : 1);
         gl.uniform1f(loc.atm, halo ? halo.atm : 0);
+        gl.uniform1f(loc.wide, halo && halo.wide ? halo.wide : 1);
         gl.uniform3fv(loc.tint, halo ? halo.tint : [0, 0, 0]);
         gl.uniform2fv(loc.sun, halo ? halo.sun : [1, 0]);
         gl.bindVertexArray(vao);

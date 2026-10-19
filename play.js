@@ -177,8 +177,9 @@ async function startPolling() {
 // ---------------------------------------------------------------- you
 function showMe() {
   const p = S.player;
-  $('hangarBtn').hidden = !p; $('connectBtn').hidden = !!p && !S.spectating;
-  const canMenu = !!S.account && !S.spectating;   // signing out lives behind your playertag
+  $('hangarBtn').hidden = !p || S.spectating; $('connectBtn').hidden = !!p && !S.spectating;
+  $('signOut').hidden = S.spectating;
+  const canMenu = !!S.account;   // the hangar, the look and signing out live behind your playertag
   $('who').classList.toggle('menu', canMenu); $('who').disabled = !canMenu;
   if (!canMenu) closeMeMenu();
   if (S.spectating) $('connectBtn').textContent = 'Use my wallet';
@@ -233,13 +234,13 @@ $('connectBtn').addEventListener('click', async () => {
     if (!S.player) location.href = 'index.html';
   } catch (err) { feed('<em>' + esc(chain.friendlyError(err)) + '</em>'); }
 });
-// your playertag opens a small menu with Sign out
+// your playertag opens a small menu: hangar, the look, sign out
 function closeMeMenu() { $('meMenu').hidden = true; $('who').setAttribute('aria-expanded', 'false'); }
 $('who').addEventListener('click', e => {
   e.stopPropagation();
   const open = $('meMenu').hidden;
   $('meMenu').hidden = !open; $('who').setAttribute('aria-expanded', String(open));
-  if (open) ($('hangarBtn').hidden ? $('signOut') : $('hangarBtn')).focus();
+  if (open) ($('hangarBtn').hidden ? document.querySelector('[data-look]') : $('hangarBtn')).focus();
 });
 document.addEventListener('click', e => { if (!$('meMenu').hidden && !e.target.closest('.who-wrap')) closeMeMenu(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('meMenu').hidden) { closeMeMenu(); $('who').focus(); } });
@@ -348,9 +349,12 @@ $('hangarBtn').addEventListener('click', () => { closeMeMenu(); openHangar(); })
 // the docked cards open the hangar on their own tab
 for (const [id, tab] of [['tCrew', 'crew'], ['tArms', 'weapons']]) $(id).addEventListener('click', () => { if (S.spectating || !S.player) return; H.tab = tab; openHangar(); });
 $('hgClose').addEventListener('click', () => $('hangar').close());
+$('dBack').addEventListener('click', () => $('hgCards').classList.remove('detail-open'));
 
 function setTab(tab) {
   H.tab = tab;
+  $('hgCards').classList.remove('detail-open');   // phones: back to the list
+  $('dBack').textContent = tab === 'crew' ? '‹ All crew' : '‹ All weapons';
   for (const b of document.querySelectorAll('.tabs button')) b.setAttribute('aria-selected', String(b.dataset.tab === tab));
   const profile = tab === 'profile';
   $('hgCards').hidden = profile; $('hgFoot').hidden = profile; $('hgProfile').hidden = !profile;
@@ -392,7 +396,7 @@ function renderList() {
     if (H.sel[kind] === c) b.setAttribute('aria-current', 'true');
     b.innerHTML = '<img alt="" loading="lazy" src="' + thumb(c.img) + '"><span><span class="nm">' + esc(c.name) + '</span><span class="rr rar-' + c.rarity + '">' + c.rarity + ' · ' + esc(kind === 'crew' ? c.element : c.cls) + '</span></span>' +
       '<span class="own' + (n ? ' yes' : '') + '">' + (on ? (H.pending[kind] ? 'Selected' : 'Equipped') : S.owned ? (n ? n + ' owned' : 'Not owned') : '') + '</span>';
-    b.addEventListener('click', () => { H.sel[kind] = c; H.shine[kind] = null; H.picked[kind] = true; renderList(); renderDetail(); });
+    b.addEventListener('click', () => { H.sel[kind] = c; H.shine[kind] = null; H.picked[kind] = true; renderList(); renderDetail(); $('hgCards').classList.add('detail-open'); });
     list.appendChild(b);
   }
 }
@@ -497,7 +501,9 @@ function setPreview(kind, c, s) {
   const staged = slotOf('crew');
   PV.crew = staged ? crewOf({ card: staged.card, shine: staged.shine }) : DEFAULT_CREW;   // your spacecraft fires it
   const toShip = PV_SHIP_POS.map((v, i) => v - PV_PLANET.pos[i]);
-  PV.arm = HeroGL.armory({ planet: PV_PLANET, list: [[c.name, s.shine]], every: c.rarity === 'Mythical' ? 4.2 : 2.6, delay: 0.3, aimDir: toShip, spread: 0.15 });
+  // fired as in the game: a burst of single shots, about one per 5 damage
+  const shots = Math.max(4, Math.min(18, Math.round(damageOf(c, s) / 5)));
+  PV.arm = HeroGL.armory({ planet: PV_PLANET, list: [[c.name, s.shine]], every: 1.6, delay: 0.3, aimDir: toShip, spread: 0.15, burst: { shots, gap: 0.14 } });
 }
 HeroGL.view($('hgPreview'), t => PV.kind === 'crew'
   ? { eye: [0, 0.55, 3.4], at: [0, 0, 0], fov: 0.55, halo: null, ships: [{ ...PV.crew, pos: [0, 0, 0], fwd: [Math.sin(t * 0.5), 0, Math.cos(t * 0.5)], size: 0.62 }] }

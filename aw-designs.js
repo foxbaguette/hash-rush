@@ -1415,8 +1415,8 @@ const AWDesign = (() => {
   ARMS_NOTES['Leveller Bow'] = 'A shield of light closes around the ship, one giant arrow climbs and bursts high above the target, and a rain of arrows levels a whole strip of ground. Electric arcs keep jumping between the craters along the strip after the rain.';
 
   // ---------------------------------------------------------------- single shots
-  // The game fires an attack as a quick burst; each shot of it is one projectile in the style of
-  // the weapon's type (the full animations above are for showcases). shotOf(name)(A, T) fires one.
+  // The game fires an attack as a quick burst; each shot of it is one projectile with a small piece
+  // of the weapon's own animation (the full animations above are for showcases). shotOf(name)(A, T) fires one.
   const SHOT_KIND = name =>
     /revolver|shotgun|dartgun|widow|requiem|confuser/i.test(name) ? 'gun' :
     /bow|arbalest/i.test(name) ? 'bow' :
@@ -1425,19 +1425,200 @@ const AWDesign = (() => {
     /shield/i.test(name) ? 'disc' :
     /staff|scepter|stave|sungorger/i.test(name) ? 'orb' :
     /mortar/i.test(name) ? 'shell' : 'blade';
-  const SHOTS = {
-    blade: (A, T) => slash(A, T, { flight: 0.32, width: 0.07, density: 4, size: 0.022, hit: tg => T.spark(tg) }),
-    gun: (A, T) => shot(A, T, { flight: 0.16, size: 0.02, hit: tg => T.spark(tg),
-      trail: (p, d) => { A.emit(p, [0, 0, 0], 0.05, 0.018 * T.k, T.pal.hot, 1.4, { drag: 0 }); A.emit(p, U().scale(d, -0.2), 0.08, 0.012 * T.k, T.pal.main, 1.0, { drag: 0 }); T.shineTrail(p, d, 0.02); } }),
-    bow: (A, T) => shot(A, T, { flight: 0.28, model: 'rod', scale: 0.009, hit: tg => T.spark(tg), trail: (p, d) => T.trail(p, d, 0.02) }),
-    spear: (A, T) => shot(A, T, { flight: 0.3, model: 'rod', scale: 0.012, hit: tg => T.spark(tg), trail: (p, d) => T.trail(p, d, 0.025) }),
-    throw: (A, T) => spinner(A, T, { flight: 0.36, blades: 1, radius: 0.04, size: 0.025, hit: tg => T.spark(tg) }),
-    disc: (A, T) => disc(A, T, { flight: 0.32, radius: 0.05, density: 8, hit: tg => T.spark(tg) }),
-    orb: (A, T) => shot(A, T, { flight: 0.34, hit: tg => T.spark(tg),
-      trail: (p, d) => { A.emit(p, [0, 0, 0], 0.08, 0.04 * T.k, T.pal.main, 1.1, { drag: 0 }); A.emit(p, [0, 0, 0], 0.05, 0.02 * T.k, T.pal.hot, 1.3, { drag: 0 }); T.shineTrail(p, d, 0.025); } }),
-    shell: (A, T) => shot(A, T, { path: 'arc', flight: 0.55, model: 'shell', scale: 0.012, hit: tg => T.spark(tg), trail: (p, d) => T.trail(p, d, 0.025) }),
+  // one bolt: a bright head and a tail along its own line, never anything beside it (that reads as
+  // a second shot); the shine only tints the tail, the rarity only makes it bigger
+  const SHINE_TAIL = [null, GOLD, VIOLET, STAR, MAGENTA];
+  const boltTrail = (A, T, p, d, head = 0.02, tail = 0.15, col = T.pal.main, hot = T.pal.hot, glow = 1) => {
+    const sc = U().scale, tint = SHINE_TAIL[T.S];
+    A.emit(p, [0, 0, 0], 0.05, head * T.k, hot, 1.4 * glow, { drag: 0 });
+    A.emit(p, sc(d, -tail), 0.1, head * 0.7 * T.k, col, 1.0 * glow, { drag: 0 });
+    if (tint) A.emit(p, sc(d, -tail * 1.5), 0.14, head * 0.45 * T.k, T.S === 2 && Math.random() < 0.5 ? CYAN : tint, 1.2, { drag: 0 });
   };
-  const shotOf = name => SHOTS[SHOT_KIND(name)];
+  const bolt = (A, T, head, tail) => (p, d) => boltTrail(A, T, p, d, head, tail);
+  // a small blade wave: a tight crescent that reads as one blade
+  const crescent = (A, T, p, d, col = T.pal.main, w = 0.045) => {
+    const { add, scale, cross, norm } = U(), side = norm(cross(d, [0, 1, 0.01])), up = norm(cross(side, d));
+    for (let i = 0; i <= 4; i++) {
+      const a = (i / 4 - 0.5) * 2.2, q = add(p, add(scale(side, Math.sin(a) * w * T.k), add(scale(up, Math.cos(a) * w * 0.35 * T.k), scale(d, -Math.cos(a) * w * 0.5 * T.k))));
+      A.emit(q, scale(d, -0.1), 0.06, 0.018 * T.k, i === 2 ? T.pal.hot : col, 1.1, { drag: 0 });
+    }
+    const tint = SHINE_TAIL[T.S];
+    if (tint) A.emit(p, scale(d, -0.25), 0.12, 0.01 * T.k, T.S === 2 && Math.random() < 0.5 ? CYAN : tint, 1.2, { drag: 0 });
+  };
+  // a small thrown weapon turning end over end around its own centre
+  const tumble = (A, T, col = T.pal.main, r = 0.03, blades = 1) => {
+    let ang = 0;
+    return (p, d) => {
+      const { add, scale, cross, norm } = U(), side = norm(cross(d, [0, 1, 0.01])), up = norm(cross(side, d));
+      ang += 0.9;
+      for (let i = 0; i < blades; i++) { const a = ang + i * Math.PI * 2 / blades; A.emit(add(p, add(scale(up, Math.cos(a) * r * T.k), scale(d, Math.sin(a) * r * T.k))), [0, 0, 0], 0.1, 0.022 * T.k, col, 1.1, { drag: 0 }); }
+      boltTrail(A, T, p, d, 0.016, 0.05);
+    };
+  };
+  // a small shield disc
+  const plate = (A, T, col = T.pal.main, r = 0.04, n = 8) => (p, d) => {
+    A.ringNow(p, d, r * T.k, n, col, 0.9 + 0.1 * T.R);
+    boltTrail(A, T, p, d, 0.018, 0.06);
+  };
+  // one shot of the weapon: o.trail(p, d, u, A, T) draws the projectile, o.hit(tg, A, T) adds the
+  // weapon's touch to the small spark every hit gets
+  const one = o => (A, T) => shot(A, T, {
+    flight: o.flight ?? 0.3, path: o.path, model: o.model, scale: o.scale, spread: o.spread,
+    trail: o.trail ? (p, d, u) => o.trail(p, d, u, A, T) : bolt(A, T, o.head ?? 0.02, o.tail ?? 0.15),
+    hit: tg => { T.spark(tg, o.col || T.pal.main); if (o.hit) o.hit(tg, A, T); },
+  });
+  const LAVA = [1, 0.35, 0.06], HOTL = [1, 0.85, 0.45], WXP = [0.95, 0.55, 1], GEMV = [0.8, 0.45, 1], LIGHT = [0.9, 0.85, 1];
+  const SHOT = {};
+  const per = (names, o) => names.forEach(n => SHOT[n] = one(o));
+  const lift = (x, h = 0.02) => U().add(x.p, U().scale(x.n, h));
+
+  // ---- blades: a small blade wave
+  per(['Standard Sword'], { trail: (p, d, u, A, T) => crescent(A, T, p, d) });
+  per(['Rock Blade'], { col: [0.6, 0.55, 0.45], trail: (p, d, u, A, T) => { crescent(A, T, p, d, [0.6, 0.55, 0.45]); if (Math.random() < 0.3) A.smoke(p, U().jit(0.1), 0.4, 0.012, BROWN, 0.6, 0.5); },
+    hit: (tg, A) => A.puff(tg.p, tg.n, 2, DUST, 0.4) });
+  per(['Storm Edge Sword'], { trail: (p, d, u, A, T) => { crescent(A, T, p, d); if (Math.random() < 0.2) A.bolt(p, U().add(p, U().jit(0.06)), 0.05, [0.85, 0.95, 1], 0.008); },
+    hit: (tg, A) => A.after(0.04, () => A.bolt(U().add(tg.p, U().add(U().scale(tg.n, 0.4), U().jit(0.1))), tg.p, 0.1, [0.85, 0.95, 1], 0.012)) });
+  per(['Waxon Sword'], { col: WXP, trail: (p, d, u, A, T) => crescent(A, T, p, d, WXP, 0.05),
+    hit: (tg, A) => { const [u] = U().basis(tg.n); A.line(U().add(tg.p, U().scale(u, -0.1)), U().add(tg.p, U().scale(u, 0.1)), 0.25, 0.012, [1, 0.9, 1], 1.5); } });
+  per(['Star Fire Sword'], { col: [1, 0.7, 0.25], trail: (p, d, u, A, T) => { crescent(A, T, p, d, [1, 0.7, 0.25], 0.05); A.emit(p, [0, 0, 0], 0.05, 0.04 * T.k, [1, 0.95, 0.75], 0.9, { drag: 0 }); },
+    hit: (tg, A, T) => { A.flash(tg.p, 0.25 * T.k, [1, 0.97, 0.85], 0.15); const [u] = U().basis([0.3, 0.8, 4.5]); A.line(U().add(tg.p, U().scale(u, -0.25)), U().add(tg.p, U().scale(u, 0.25)), 0.15, 0.01, [1, 0.95, 0.75], 1.4); } });
+  per(['Healing Blade'], { col: [0.5, 1, 0.75], trail: (p, d, u, A, T) => crescent(A, T, p, d, [0.5, 1, 0.75], 0.05),
+    hit: (tg, A) => { const [u, v] = U().basis(tg.n), H = [0.5, 1, 0.75]; for (const a of [u, v]) A.line(U().add(tg.p, U().scale(a, -0.1)), U().add(tg.p, U().scale(a, 0.1)), 0.3, 0.014, H, 1.5); } });
+  per(['Eternal Blade'], { trail: (p, d, u, A, T) => { crescent(A, T, p, d); A.emit(U().add(p, U().scale(d, -0.08)), [0, 0, 0], 0.08, 0.014 * T.k, [0.63, 0.42, 0.85], 0.8, { drag: 0 }); },
+    hit: (tg, A, T) => { A.after(0.1, () => A.flash(tg.p, 0.08, T.pal.hot, 0.1)); A.after(0.2, () => A.flash(tg.p, 0.05, [0.63, 0.42, 0.85], 0.1)); } });
+  per(['Galatic Fireblade'], { col: LAVA, trail: (p, d, u, A, T) => { crescent(A, T, p, d, LAVA, 0.05); if (Math.random() < 0.5) A.emit(p, U().jit(0.15), 0.25, 0.018, Math.random() < 0.5 ? LAVA : HOTL, 1.3, { drag: 2 }); },
+    hit: (tg, A) => { for (let i = 0; i < 8; i++) A.emit(U().add(tg.p, U().jit(0.02)), U().add(U().scale(tg.n, 0.6 + Math.random() * 0.5), U().jit(0.15)), 0.5, 0.025, i % 3 ? LAVA : HOTL, 1.5, { drag: 2 }); } });
+  per(['Divine Blade'], { col: [1, 0.95, 0.8], trail: (p, d, u, A, T) => crescent(A, T, p, d, [1, 0.95, 0.8], 0.05),
+    hit: (tg, A) => A.line(tg.p, U().add(tg.p, U().scale(sky(tg.n), 0.35)), 0.25, 0.022, [1, 0.92, 0.7], 1.5) });
+  per(['AI Sword'], { trail: (p, d, u, A, T) => crescent(A, T, p, d, [0.3, 1, 0.6]),
+    hit: (tg, A) => A.ring(tg.p, tg.n, 12, 0.0001, 0.3, 0.008, [1, 0.25, 0.2], 1.3) });
+  per(['Moonshot Blade'], { model: 'shell', scale: 0.012, trail: (p, d, u, A, T) => { A.emit(p, U().jit(0.03), 0.2, 0.03 * T.k, [1, 0.55, 0.2], 1.1, { drag: 2 }); A.smoke(p, U().jit(0.02), 0.4, 0.018, [0.3, 0.27, 0.27], 0.35); },
+    hit: (tg, A) => A.flash(tg.p, 0.08, [1, 0.6, 0.3], 0.12) });
+  per(['Dawn Sword'], { flight: 0.16, col: [1, 0.75, 0.4], trail: (p, d, u, A, T) => boltTrail(A, T, p, d, 0.022, 0.4, [1, 0.75, 0.4], [1, 1, 0.9]),
+    hit: (tg, A) => A.ring(tg.p, tg.n, 12, 0.4, 0.25, 0.012, [1, 0.55, 0.3], 1.2) });
+  per(['Reptiloid Blade'], { path: 'wiggle', flight: 0.4, trail: (p, d, u, A, T) => boltTrail(A, T, p, d, 0.024, 0.15, [1, 0.25, 0.1]),
+    hit: (tg, A) => A.burn(tg, 0.3) });
+  // the mythical sword, small: a burning blade flying point first, a guard of Waxon, lava splashing out
+  per(['Waxon Fire Sword'], { flight: 0.32, col: [1, 0.4, 0.06],
+    trail: (p, d, u, A, T) => {
+      const { add, scale, cross, norm } = U(), side = norm(cross(d, [0, 1, 0.01]));
+      for (let s = 0; s <= 0.1; s += 0.02) A.emit(U().sub(p, scale(d, s)), [0, 0, 0], 0.04, 0.02 * T.k, s < 0.03 ? HOTL : [1, 0.4, 0.06], 1.3, { drag: 0 });
+      const g = U().sub(p, scale(d, 0.11));
+      for (const x of [-0.025, 0, 0.025]) A.emit(add(g, scale(side, x)), [0, 0, 0], 0.04, 0.018 * T.k, WXP, 1.3, { drag: 0 });
+      if (Math.random() < 0.4) A.emit(p, U().add(scale(d, -0.3), U().jit(0.1)), 0.2, 0.016, HOTL, 1.3, { drag: 2 });
+    },
+    hit: (tg, A) => {
+      const { add, scale, basis } = U(), [u, w] = basis(tg.n);
+      A.flash(tg.p, 0.1, HOTL, 0.15);
+      for (let i = 0; i < 10; i++) { const a = Math.random() * Math.PI * 2, out = add(scale(u, Math.cos(a)), scale(w, Math.sin(a)));
+        A.emit(add(tg.p, scale(out, 0.02)), add(scale(sky(tg.n), 0.4 + Math.random() * 0.5), scale(out, 0.3 + Math.random() * 0.4)), 0.5, 0.018, Math.random() < 0.6 ? LAVA : HOTL, 1.5, { drag: 2.2 }); }
+      A.burn(tg, 0.35);
+    } });
+
+  // ---- daggers: a quick bolt
+  per(['Titanium Dagger'], { flight: 0.25, trail: (p, d, u, A, T) => { boltTrail(A, T, p, d, 0.02, 0.12, [0.9, 0.95, 1], [1, 1, 1]); if (Math.random() < 0.15) A.emit(p, [0, 0, 0], 0.04, 0.04 * T.k, [1, 1, 1], 1.4, { drag: 0 }); } });
+  per(['Emerald Dagger'], { flight: 0.25, col: [0.25, 1, 0.45], trail: (p, d, u, A, T) => boltTrail(A, T, p, d, 0.022, 0.15, [0.25, 1, 0.45], [0.7, 1, 0.75]),
+    hit: (tg, A) => A.starburst(tg.p, tg.n, 4, [0.25, 1, 0.45]) });
+  per(['Elite Dagger'], { flight: 0.22, trail: (p, d, u, A, T) => boltTrail(A, T, p, d, 0.018, 0.1, [0.7, 0.8, 0.9], [0.85, 0.9, 1], 0.5),
+    hit: (tg, A) => { const [u] = U().basis(tg.n); A.line(U().add(tg.p, U().scale(u, -0.08)), U().add(tg.p, U().scale(u, 0.08)), 0.15, 0.012, [1, 1, 1], 1.6); } });
+  per(['Lithium Dagger'], { flight: 0.25, hit: (tg, A, T) => A.ring(tg.p, tg.n, 10, 0.4, 0.2, 0.01, T.pal.hot, 1.0) });
+  per(['Toothed Dagger'], { flight: 0.25, hit: (tg, A) => {
+    const { add, scale, basis } = U(), [u, v] = basis(tg.n);
+    for (let i = -1; i <= 1; i++) for (const s of [-1, 1]) A.emit(add(tg.p, add(scale(u, i * 0.03), add(scale(v, s * 0.1), scale(tg.n, 0.04)))), scale(v, -s * 0.8), 0.12, 0.014, [0.95, 0.92, 0.8], 1.3, { drag: 6 });
+  } });
+  per(['Dagger of Creation'], { flight: 0.28, trail: (p, d, u, A, T) => { boltTrail(A, T, p, d, 0.022); if (Math.random() < 0.3) A.emit(p, [0, -0.3, 0], 0.3, 0.012, LAVA, 1.2, { drag: 0.5 }); },
+    hit: (tg, A) => { for (let i = 0; i < 5; i++) A.emit(U().add(tg.p, U().jit(0.02)), U().add(U().scale(tg.n, 0.6 + Math.random() * 0.4), U().jit(0.25)), 0.6, 0.016, i % 2 ? LAVA : HOTL, 1.3, { drag: 1.5 }); } });
+
+  // ---- axes and hammers: a small thrown weapon
+  per(['Standard Issue Axe'], { flight: 0.34, trail: (p, d, u, A, T) => tumble(A, T)(p, d) });
+  SHOT['Kite Axe'] = (A, T) => { const tr = tumble(A, T); return one({ path: 'wiggle', flight: 0.4, trail: (p, d) => { tr(p, d); A.emit(p, U().scale(d, -0.2), 0.3, 0.012, [1, 0.5, 0.5], 0.8, { drag: 1 }); } })(A, T); };
+  SHOT['Infernal Axe'] = (A, T) => { const tr = tumble(A, T, T.pal.main, 0.035, 2); return one({ flight: 0.34, trail: (p, d) => { tr(p, d); if (Math.random() < 0.5) A.emit(p, U().jit(0.2), 0.2, 0.018, Math.random() < 0.5 ? [1, 0.4, 0.1] : [1, 0.8, 0.3], 1.3, { drag: 2 }); },
+    hit: tg => A.flash(tg.p, 0.14, [1, 0.6, 0.2], 0.15) })(A, T); };
+  SHOT['Green Axe'] = (A, T) => { const tr = tumble(A, T, T.pal.main, 0.035, 2), LEAF = [0.35, 0.8, 0.25]; return one({ flight: 0.34, trail: (p, d) => { tr(p, d); if (Math.random() < 0.3) A.emit(p, [0, -0.1, 0], 0.5, 0.012, LEAF, 0.9, { add: false, drag: 2 }); },
+    hit: tg => { const { add, scale, basis } = U(), [u, v] = basis(tg.n); for (let i = 0; i < 3; i++) { const a = i / 3 * Math.PI * 2; for (let s = 1; s <= 3; s++) A.emit(add(tg.p, add(scale(u, Math.cos(a) * s * 0.03), add(scale(v, Math.sin(a) * s * 0.03), scale(tg.n, 0.02)))), [0, 0, 0], 0.6, 0.016, LEAF, 1.0, { drag: 0 }); } } })(A, T); };
+  SHOT['Necromancers Hammer'] = (A, T) => { const tr = tumble(A, T, [0.5, 0.25, 0.75], 0.035); return one({ flight: 0.36, trail: (p, d) => { tr(p, d); A.smoke(p, U().jit(0.02), 0.35, 0.015, [0.15, 0.05, 0.2], 0.4); },
+    hit: tg => { for (let s = 0; s < 6; s++) A.after(0.05 + s * 0.035, () => A.emit(U().add(tg.p, U().add(U().scale(tg.n, s * 0.03), [Math.sin(s) * 0.025, 0, Math.cos(s) * 0.025])), U().scale(tg.n, 0.1), 0.4, 0.02, [0.45, 1, 0.65], 1.4, { drag: 1 })); } })(A, T); };
+  per(['Nordic Warhammer'], { flight: 0.38, model: 'shell', scale: 0.014, trail: (p, d, u, A, T) => boltTrail(A, T, p, d, 0.02, 0.08, [0.75, 0.82, 0.92]),
+    hit: (tg, A) => A.ring(tg.p, tg.n, 14, 0.5, 0.3, 0.014, [0.75, 0.85, 1], 1.2) });
+  per(['Spike Hammer'], { flight: 0.32, model: 'shell', scale: 0.012,
+    hit: (tg, A, T) => { const { add, scale, norm, basis } = U(), [u, v] = basis(tg.n); for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2; A.emit(tg.p, scale(norm(add(add(scale(u, Math.cos(a)), scale(v, Math.sin(a))), scale(tg.n, 0.6))), 0.6), 0.2, 0.012, T.pal.hot, 1.2, { drag: 5 }); } } });
+  per(['Rock Cudgel'], { path: 'arc', flight: 0.4, model: 'bomblet', scale: 0.012, col: BROWN, trail: (p, d, u, A) => A.smoke(p, U().scale(d, -0.1), 0.3, 0.015, DUST, 0.3),
+    hit: (tg, A) => A.puff(tg.p, tg.n, 2, DUST, 0.4) });
+
+  // ---- shields: a small disc
+  SHOT['Standard Shield'] = (A, T) => one({ flight: 0.3, trail: plate(A, T) })(A, T);
+  SHOT['Sky Shield'] = (A, T) => { const pl = plate(A, T, [0.8, 0.95, 1]); return one({ flight: 0.3, trail: (p, d) => { pl(p, d); A.emit(p, U().scale(d, -0.6), 0.15, 0.012, [0.8, 0.95, 1], 0.6, { drag: 1 }); } })(A, T); };
+  SHOT['Plasma Shield'] = (A, T) => { const pl = plate(A, T); return one({ flight: 0.3, trail: (p, d) => { pl(p, d); A.emit(p, [0, 0, 0], 0.05, 0.035 * T.k, [1, 0.5, 0.2], 1.0, { drag: 0 }); } })(A, T); };
+  SHOT['Waxon Shield'] = (A, T) => one({ flight: 0.3, trail: plate(A, T, T.pal.hot, 0.045, 6), hit: tg => A.starburst(tg.p, tg.n, 6, T.pal.hot) })(A, T);
+
+  // ---- bows: one arrow
+  per(['Equalizer Bow'], { path: 'arc', flight: 0.32, model: 'rod', scale: 0.009, head: 0.014,
+    hit: (tg, A, T) => { for (let i = 0; i < 2; i++) A.after(0.04 + i * 0.03, () => A.flash(A.near(tg, 0.03).p, 0.04, T.pal.hot, 0.08)); } });
+  SHOT['Randomizer Bow'] = (A, T) => {
+    const col = [Math.random(), Math.random(), Math.random()].map(x => 0.35 + 0.65 * x);
+    return one({ path: ['line', 'arc', 'wiggle'][(Math.random() * 3) | 0], flight: 0.32, model: 'rod', scale: 0.009, col,
+      trail: (p, d) => boltTrail(A, T, p, d, 0.014, 0.15, col) })(A, T);
+  };
+  per(['Blackbolt Arbalest'], { flight: 0.22, model: 'rod', scale: 0.01,
+    trail: (p, d, u, A, T) => { A.emit(p, U().scale(d, -0.05), 0.15, 0.014, [0.12, 0.12, 0.14], 0.7, { add: false, drag: 0 }); boltTrail(A, T, p, d, 0.012, 0.12, [0.8, 0.8, 0.85]); } });
+  // the bow of light, small: one gem arrow, and electric arcs jump over the ground where it lands
+  per(['Leveller Bow'], { flight: 0.3, model: 'rod', scale: 0.01, col: GEMV,
+    trail: (p, d, u, A, T) => boltTrail(A, T, p, d, 0.02, 0.15, GEMV, LIGHT),
+    hit: (tg, A) => { for (let i = 0; i < 3; i++) A.after(0.04 + i * 0.07, () => { const t2 = A.near(tg, 0.05); A.bolt(lift(tg), lift(t2), 0.1, i % 2 ? [1, 1, 1] : [0.85, 0.75, 1], 0.01); }); } });
+
+  // ---- guns: one round
+  per(['Widow Maker'], { flight: 0.3, model: 'rod', scale: 0.01, col: [0.55, 0.6, 0.66],
+    trail: (p, d, u, A, T) => { A.smoke(p, U().jit(0.02), 0.4, 0.018, [0.2, 0.2, 0.22], 0.45); boltTrail(A, T, p, d, 0.018, 0.1, [0.6, 0.65, 0.7]); } });
+  per(['Elgem Dartgun'], { flight: 0.2, head: 0.016 });
+  per(['Magori Revolver'], { flight: 0.16, trail: (p, d, u, A, T) => boltTrail(A, T, p, d, 0.016, 0.3, T.pal.main, [1, 0.85, 0.5]) });
+  per(['Emberfire Shotgun'], { flight: 0.18, col: [1, 0.5, 0.15], trail: (p, d, u, A, T) => boltTrail(A, T, p, d, 0.018, 0.2, [1, 0.5, 0.15], [1, 0.85, 0.4]) });
+  per(["Thunders Requiem"], { flight: 0.14, trail: (p, d, u, A, T) => boltTrail(A, T, p, d, 0.024, 0.4, [0.8, 0.95, 1], [1, 1, 1]),
+    hit: (tg, A) => { A.flash(tg.p, 0.12, [1, 1, 1], 0.08); A.after(0.12, () => A.ring(tg.p, tg.n, 14, 0.6, 0.3, 0.012, [0.8, 0.95, 1], 1.2)); } });
+  per(['Confuser'], { path: 'wiggle', flight: 0.35, trail: (p, d, u, A, T) => boltTrail(A, T, p, d, 0.02, 0.12, Math.floor(u * 8) % 2 ? T.pal.main : [0.7, 0.75, 1]) });
+
+  // ---- staffs and scepters: one orb
+  per(['Stave of Deception'], { path: 'wiggle', flight: 0.35, trail: (p, d, u, A, T) => boltTrail(A, T, p, d, 0.026, 0.12, T.pal.main, [1, 0.6, 0.3]) });
+  SHOT['Waxon Staff'] = (A, T) => {
+    let ang = 0;
+    return one({ flight: 0.34, trail: (p, d) => {
+      const { add, scale, cross, norm } = U(), sd = norm(cross(d, [0, 1, 0.01])), up = cross(sd, d);
+      ang += 0.8;   // the orb corkscrews in
+      A.emit(add(p, add(scale(sd, Math.cos(ang) * 0.022), scale(up, Math.sin(ang) * 0.022))), [0, 0, 0], 0.15, 0.014 * T.k, T.pal.hot, 1.2, { drag: 0 });
+      boltTrail(A, T, p, d, 0.03, 0.08);
+    }, hit: tg => A.swirl(tg.p, tg.n, 0.15, T.pal.main) })(A, T);
+  };
+  SHOT['Moonkey Scepter'] = (A, T) => {
+    const PINK = [1, 0.5, 0.8], BAN = [1, 0.9, 0.3], tr = tumble(A, T, BAN, 0.03);
+    return one({ flight: 0.36, trail: (p, d) => { tr(p, d); if (Math.random() < 0.3) A.emit(p, U().jit(0.1), 0.3, 0.01, PINK, 1.4, { drag: 2, twinkle: true }); },
+      hit: tg => {   // one little heart floats up
+        const { add, scale, basis } = U(), [u, v] = basis([0.3, 0.8, 4.5]), c = add(tg.p, scale(tg.n, 0.06));
+        for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2, x = 16 * Math.sin(a) ** 3, y = 13 * Math.cos(a) - 5 * Math.cos(2 * a) - 2 * Math.cos(3 * a) - Math.cos(4 * a); A.emit(add(c, add(scale(u, x * 0.005), scale(v, y * 0.005))), scale(sky(tg.n), 0.25), 0.7, 0.014, PINK, 1.4, { drag: 0.5 }); }
+      } })(A, T);
+  };
+  // the star eater, small: a little star flies in and flares gem-violet as it sinks in
+  per(['Sungorger'], { flight: 0.36, col: [1, 0.72, 0.25],
+    trail: (p, d, u, A, T) => { A.emit(p, [0, 0, 0], 0.05, 0.06 * T.k, [1, 0.72, 0.25], 0.8, { drag: 0 }); A.emit(p, [0, 0, 0], 0.05, 0.025 * T.k, [1, 0.97, 0.85], 1.6, { drag: 0 }); if (Math.random() < 0.4) A.emit(p, U().jit(0.3), 0.15, 0.01, [1, 0.5, 0.9], 1.4, { drag: 3 }); },
+    hit: (tg, A) => { A.flash(tg.p, 0.14, [1, 0.97, 0.85], 0.12); A.after(0.08, () => A.ring(tg.p, tg.n, 14, 0.5, 0.3, 0.012, GEMV, 1.4)); } });
+
+  // ---- spears: one spear
+  SHOT['Jaggered Spear'] = (A, T) => {
+    let k = 0;
+    return one({ flight: 0.28, model: 'rod', scale: 0.011, trail: (p, d) => {
+      const { add, scale, cross, norm } = U(), side = norm(cross(d, [0, 1, 0.01]));
+      A.emit(add(p, scale(side, (k++ % 4 < 2 ? 1 : -1) * 0.015 * T.k)), [0, 0, 0], 0.15, 0.014 * T.k, T.pal.main, 1.1, { drag: 0 });   // the saw-tooth wake
+      boltTrail(A, T, p, d, 0.016, 0.08);
+    }, hit: tg => { for (let i = 0; i < 3; i++) A.bolt(tg.p, U().add(tg.p, U().add(U().scale(tg.n, 0.05), U().jit(0.08))), 0.15, T.pal.hot, 0.01); } })(A, T);
+  };
+  per(['Sandmaster Spear'], { flight: 0.3, model: 'rod', scale: 0.011, trail: (p, d, u, A, T) => { boltTrail(A, T, p, d, 0.016, 0.1); A.smoke(p, U().jit(0.02), 0.3, 0.012, [0.85, 0.7, 0.45], 0.3, 2); },
+    hit: (tg, A) => { const { add, scale, basis } = U(), [u, v] = basis(tg.n); for (let i = 0; i < 12; i++) A.after(i * 0.02, () => { const a = i * 0.8, h = i / 12 * 0.18, r = 0.02 + h * 0.3; A.emit(add(tg.p, add(scale(tg.n, h), add(scale(u, Math.cos(a) * r), scale(v, Math.sin(a) * r)))), [0, 0, 0], 0.4, 0.02, [0.85, 0.7, 0.45], 0.6, { add: false, drag: 1 }); }); } });
+
+  // ---- mortar: one shell lobbed in
+  per(['Waxon Mortar'], { path: 'arc', flight: 0.5, model: 'shell', scale: 0.012, col: [0.3, 1, 0.85],
+    trail: (p, d, u, A, T) => boltTrail(A, T, p, d, 0.016, 0.1, [0.3, 1, 0.85]),
+    hit: (tg, A) => A.ring(tg.p, tg.n, 14, 0.5, 0.3, 0.012, [1, 0.8, 0.4], 1.2) });
+
+  // anything not listed above still fires a plain bolt
+  const shotOf = name => SHOT[name] || one({});
 
   return { RARITIES, SHINES, ELEMENT, rarityLevel, shineLevel, CREW, CREW_NOTES, buildShip, shotOf, SHOT_KIND,
     ARMS, ARMS_NOTES, makeTier, CLASS_PAL, EXHAUST, builder, applyShine, h3, mixHex };
