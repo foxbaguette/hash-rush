@@ -7,10 +7,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Michroma&family=Barlow+Condensed:wght@500;600;800&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link rel="icon" href="favicon.svg?v=20261019h" type="image/svg+xml">
-<link rel="icon" href="favicon-32.png?v=20261019h" type="image/png" sizes="32x32">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=20261019h">
-<link rel="stylesheet" href="ui.css?v=20261019h">
+<link rel="icon" href="favicon.svg?v=20261019i" type="image/svg+xml">
+<link rel="icon" href="favicon-32.png?v=20261019i" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=20261019i">
+<link rel="stylesheet" href="ui.css?v=20261019i">
 <style>
   html, body { margin: 0; height: 100%; background: #000; color: var(--ink); overflow: hidden; font: 15px/1.5 var(--text); }
   canvas#c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; opacity: 0; transition: opacity 1s; }
@@ -146,6 +146,8 @@
   @keyframes charged-idle { 0%, 100% { opacity: 0.1; } 50% { opacity: 0.36; } }
   @media (prefers-reduced-motion: reduce) { .fire .burst, .fire .burst::after, .fire.flash .btn, .btn.attack .cd { animation: none !important; } }
   .loadout .status { margin: 0; max-width: 380px; font-size: 14px; }
+  /* auto attack: sits just above the trigger, only when attacks sign by themselves */
+  .fire .autofire { position: absolute; right: 0; bottom: calc(100% + 8px); text-shadow: 0 1px 8px #000; }
   .loadout small { display: block; font: 600 11px var(--label); letter-spacing: 0.3em; text-transform: uppercase; color: var(--mute); }
   .loadout b { font-weight: 500; }
 
@@ -453,7 +455,8 @@
     </div>
     <div class="plate">
       <div class="n"><small>Damage</small><b id="loDmg">–</b></div>
-      <div class="fire" id="fireWrap"><span class="burst" aria-hidden="true"></span><button class="btn attack" id="attackBtn" type="button"><span class="cd" id="cdFill"></span><span class="lbl" id="attackLbl">Attack</span></button></div>
+      <div class="fire" id="fireWrap"><span class="burst" aria-hidden="true"></span><button class="btn attack" id="attackBtn" type="button"><span class="cd" id="cdFill"></span><span class="lbl" id="attackLbl">Attack</span></button>
+        <label class="switch autofire" id="autoFireRow" hidden><input type="checkbox" id="autoFire">Auto attack</label></div>
     </div>
   </div>
   <div class="status" id="attackStatus" role="status" aria-live="polite"></div>
@@ -524,13 +527,13 @@
   </div>
 </dialog>
 
-<script src="planets-data.js?v=20261019h"></script>
-<script src="space.js?v=20261019h"></script>
-<script src="weapons-lib.js?v=20261019h"></script>
-<script src="aw-data.js?v=20261019h"></script>
-<script src="aw-designs.js?v=20261019h"></script>
-<script src="sdf.js?v=20261019h"></script>
-<script src="hero-gl.js?v=20261019h"></script>
+<script src="planets-data.js?v=20261019i"></script>
+<script src="space.js?v=20261019i"></script>
+<script src="weapons-lib.js?v=20261019i"></script>
+<script src="aw-data.js?v=20261019i"></script>
+<script src="aw-designs.js?v=20261019i"></script>
+<script src="sdf.js?v=20261019i"></script>
+<script src="hero-gl.js?v=20261019i"></script>
 <script>
 'use strict';
 /*
@@ -2391,6 +2394,6 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 </script>
-<script type="module" src="play.js?v=20261019h"></script>
+<script type="module" src="play.js?v=20261019i"></script>
 </body>
 </html>

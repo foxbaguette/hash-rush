@@ -1,7 +1,7 @@
 // The Hash Rush, live screen: the planet being mined on planetmining, every crew that attacked in
 // the last 30 minutes in orbit, the attack log replayed as it comes in, and the hangar where a
 // player changes their playertag and equips crew and weapon.
-import * as chain from './chain.js?v=20261019h';
+import * as chain from './chain.js?v=20261019i';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
@@ -318,7 +318,25 @@ async function refreshPlayer() {
   S.player = S.account ? await chain.getPlayer(S.account) : null;
   if (S.player) { knownPlayers.set(S.player.wallet, S.player); ensureShip(S.player); updateHud(); }
   showMe();
+  refreshAutoFire();
 }
+// Auto attack: fires whenever the trigger has recharged. Offered only while attacks sign by themselves
+// (auto-sign on for attack in this browser), so it never opens the wallet window on its own.
+const AUTOFIRE_KEY = 'hashrush.autofire.v1';
+async function refreshAutoFire() {
+  const acts = S.spectating || !S.player ? [] : await chain.autoSignActions();
+  S.autoSignAttack = acts.includes('attack');
+  $('autoFireRow').hidden = !S.autoSignAttack;
+  let saved = false;
+  try { saved = localStorage.getItem(AUTOFIRE_KEY) === '1'; } catch { /* off */ }
+  S.autoFire = S.autoSignAttack && saved;
+  $('autoFire').checked = S.autoFire;
+}
+$('autoFire').addEventListener('change', e => {
+  S.autoFire = e.target.checked && S.autoSignAttack;
+  S.autoPause = 0;
+  try { localStorage.setItem(AUTOFIRE_KEY, S.autoFire ? '1' : '0'); } catch { /* this visit only */ }
+});
 $('connectBtn').addEventListener('click', async () => {
   if (S.spectating) { location.href = 'play.html'; return; }   // leave the read-only view
   if (S.account && !S.player) { location.href = 'index.html'; return; }   // sign-up lives on the landing page
@@ -367,6 +385,7 @@ $('autoSave').addEventListener('click', async () => {
   try {
     await chain.setAutoSign(want);
     AUTO.saved = want;
+    refreshAutoFire();   // auto attack is offered only while attacks sign by themselves
     say($('autoStatus'), want.length ? 'Saved. These actions now sign without the wallet window.' : 'Saved. Everything goes through your wallet again.');
   } catch (err) {
     say($('autoStatus'), /cancel|closed|reject|denied/i.test(String(err?.message ?? err)) ? 'Not saved: the wallet was closed.' : chain.friendlyError(err));
@@ -391,7 +410,7 @@ $('attackBtn').addEventListener('click', async () => {
   const p2 = S.player;
   if (!(Number(p2.equipped_crew_asset) && Number(p2.equipped_weapon_asset))) { openHangar(); return; }
   if (cooldownLeft() > 0) return;
-  S.firing = true; updateAttack(); say($('attackStatus'), 'Confirm the attack in your wallet…');
+  S.firing = true; updateAttack(); say($('attackStatus'), S.autoSignAttack ? '' : 'Confirm the attack in your wallet…');   // auto-signed: no wallet window to confirm in
   try {
     await chain.attack();
     S.firedAt = Date.now();
@@ -402,6 +421,7 @@ $('attackBtn').addEventListener('click', async () => {
     for (let i = 0; i < 4; i++) { await new Promise(r => setTimeout(r, 700)); await pollNow(); }
   } catch (err) {
     say($('attackStatus'), chain.friendlyError(err), true);
+    if (S.autoFire) S.autoPause = Date.now() + 20000;   // auto attack waits a little before trying again
   } finally { S.firing = false; updateAttack(); }
 });
 
@@ -427,6 +447,13 @@ function updateAttack() {
   }
   wrap.classList.toggle('charged', !cooling && !S.firing && S.attackReady && !S.spectating);
   wasCooling = cooling;
+  // auto attack: recharged, equipped, signed in, not paused after an error, and only while you are
+  // looking at the game (a visible, focused tab; never in the background)
+  if (S.autoFire && S.autoSignAttack && !cooling && !S.firing && S.attackReady && !S.spectating && chain.account() && Date.now() > (S.autoPause || 0)
+      && document.visibilityState === 'visible' && document.hasFocus()) {
+    S.autoPause = Date.now() + 3000;
+    btn.click();
+  }
 }
 setInterval(updateAttack, 250);
 // the recharge bar, drawn every frame; within one recharge it only ever moves forward (a later time
