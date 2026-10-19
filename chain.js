@@ -106,14 +106,26 @@ export function chainBlocks(radius) {
 }
 
 // ---------------------------------------------------------------- wallet
-const QUICK_PERMISSION = 'hashrush';   // the account permission quick attacks are signed with
+const QUICK_PERMISSION = 'hashrush';   // the account permission auto-signed actions are signed with
+// the game's actions a player may let sign by themselves (signup comes before there is a player)
+export const AUTO_ACTIONS = [
+  { name: 'attack', label: 'Attack', note: 'Fire at the planet' },
+  { name: 'setequip', label: 'Equip', note: 'Change your crew or weapon' },
+  { name: 'settag', label: 'Playertag', note: 'Change your playertag' },
+];
+const AUTO_KEY = 'hashrush.autosign.v1';
+const savedAuto = () => { try { const a = JSON.parse(localStorage.getItem(AUTO_KEY)); if (Array.isArray(a)) return a; } catch { /* none */ } return ['attack']; };
+let Name = null;
+const whitelistOf = names => names.length ? [{ contract: Name.from(CONTRACT), actions: names.map(n => Name.from(n)) }] : [];
 let kit = null, current;
 let onPickerClosed = null;   // set while the wallet picker is open
 
 // The wallet code (about 600 KB) is only downloaded when someone reaches for it.
 function getKit() {
   kit ??= (async () => {
-    const { SessionKit, ChainDefinition, WebRenderer, WalletPluginAnchor, WalletPluginCloudWallet } = await import('./vendor/wharfkit.js?v=4.0.2');
+    const W = await import('./vendor/wharfkit.js?v=4.0.2b');
+    const { SessionKit, ChainDefinition, WebRenderer, WalletPluginAnchor, WalletPluginCloudWallet } = W;
+    Name = W.Name;
     const ui = new WebRenderer();
     // closing the picker (x, Escape, backdrop) cancels login silently; hear it so login() settles
     const addCancelable = ui.addCancelablePromise;
@@ -124,8 +136,8 @@ function getKit() {
       ui,
       walletPlugins: [new WalletPluginCloudWallet(), new WalletPluginAnchor()],
     }, {
-      // quick attacks: a key kept in this browser that may sign planetmining::attack and nothing else
-      sessionKey: { permission: QUICK_PERMISSION, whitelist: [{ contract: CONTRACT, actions: ['attack'] }] },
+      // auto-sign: a key kept in this browser that may sign only the actions the player chose
+      sessionKey: { permission: QUICK_PERMISSION, whitelist: [{ contract: CONTRACT, actions: savedAuto() }] },
     });
   })();
   kit.catch(() => { kit = null; });   // a failed download can be retried
@@ -199,18 +211,43 @@ export function attack() {
   return transact([{ account: CONTRACT, name: 'attack', authorization: [{ actor, permission }], data: { wallet: actor } }]);
 }
 
-/** Quick attacks (WharfKit session keys): attacks signed in this browser without the wallet window.
- *  Turning them on generates a key here and asks the wallet once to add it to the account as a
- *  permission that can only call planetmining::attack; turning them off removes it again. */
-export async function quickAttackOn() {
-  if (!current) return false;
-  try { return (await current.getSessionKeyStatus()).active; } catch { return false; }
+/** Auto-sign (WharfKit session keys): the chosen actions sign in this browser without the wallet
+ *  window. A key is generated here and added to the account as the "hashrush" permission, linked
+ *  to exactly those actions; everything else still goes through the wallet. */
+export async function autoSignActions() {
+  if (!current) await restoreSession();
+  if (!current) return [];
+  try {
+    if (!(await current.getSessionKeyStatus()).active) return [];
+    return current.walletPlugin.getWhitelist().flatMap(e => (e.actions || []).map(String));
+  } catch { return []; }
 }
-export async function setQuickAttack(on) {
+/** Applies a new set of auto-signed actions: one wallet approval (first set-up, a change of the
+ *  set, or turning it all off). */
+export async function setAutoSign(names) {
   if (!current) await restoreSession();
   if (!current) throw new Error('Connect a wallet first.');
-  if (on) await current.setupSessionKey();
-  else if ((await current.getSessionKeyStatus()).active) await current.removeSessionKey();
+  await getKit();
+  const mgr = current.sessionKeyManager, active = (await current.getSessionKeyStatus()).active;
+  const before = { mgr: mgr.whitelist, wallet: active ? current.walletPlugin.whitelist : null };
+  const list = whitelistOf(names);
+  try {
+    if (!names.length) {
+      if (active) await current.removeSessionKey();
+    } else if (!active) {
+      mgr.whitelist = list;
+      await current.setupSessionKey();
+    } else {
+      mgr.whitelist = list;
+      current.walletPlugin.whitelist = list;   // signs what was chosen; saved with the session
+      await current.updateSessionKeyLinks();
+    }
+  } catch (err) {
+    mgr.whitelist = before.mgr;
+    if (before.wallet) current.walletPlugin.whitelist = before.wallet;
+    throw err;
+  }
+  try { localStorage.setItem(AUTO_KEY, JSON.stringify(names)); } catch { /* the chain still has it */ }
 }
 
 /** Turns a wallet or chain error into a sentence a player can read. */

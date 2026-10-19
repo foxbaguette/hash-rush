@@ -1,7 +1,7 @@
 // The Hash Rush, live screen: the planet being mined on planetmining, every crew that attacked in
 // the last 30 minutes in orbit, the attack log replayed as it comes in, and the hangar where a
 // player changes their playertag and equips crew and weapon.
-import * as chain from './chain.js?v=20261019d';
+import * as chain from './chain.js?v=20261019e';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
@@ -240,7 +240,7 @@ function showMe() {
   const p = S.player;
   $('hangarBtn').hidden = !p || S.spectating; $('connectBtn').hidden = !!p && !S.spectating;
   $('signOut').hidden = S.spectating;
-  $('quickRow').hidden = !p || S.spectating;   // quick attacks need your own signed-in wallet
+  $('autoBtn').hidden = !p || S.spectating;   // auto-sign needs your own signed-in wallet
   const canMenu = !!S.account;   // the hangar, the look and signing out live behind your playertag
   $('who').classList.toggle('menu', canMenu); $('who').disabled = !canMenu;
   if (!canMenu) closeMeMenu();
@@ -303,21 +303,44 @@ $('who').addEventListener('click', e => {
   const open = $('meMenu').hidden;
   $('meMenu').hidden = !open; $('who').setAttribute('aria-expanded', String(open));
   if (open) ($('hangarBtn').hidden ? document.querySelector('[data-look]') : $('hangarBtn')).focus();
-  if (open && !$('quickRow').hidden && !$('quickAttack').disabled) chain.quickAttackOn().then(on => { $('quickAttack').checked = on; });
 });
 document.addEventListener('click', e => { if (!$('meMenu').hidden && !e.target.closest('.who-wrap')) closeMeMenu(); });
-// quick attacks on or off: the wallet approves the change once, after that attacks sign by themselves
-$('quickAttack').addEventListener('change', async e => {
-  const box = e.target, want = box.checked, note = $('quickNote');
-  box.disabled = true;
-  note.textContent = want ? 'Approve it once in your wallet…' : 'Approve the removal in your wallet…';
+// auto-sign: a switch per action; Save applies them together (the wallet approves once)
+const AUTO = { saved: [] };
+const autoChosen = () => [...document.querySelectorAll('#autoRows input')].filter(b => b.checked).map(b => b.value);
+const autoDirty = () => autoChosen().join() !== AUTO.saved.join();
+function renderAutoRows() {
+  $('autoRows').innerHTML = chain.AUTO_ACTIONS.map(a => '<label class="row"><span><b>' + a.label + '</b><small>' + a.note + '</small></span>' +
+    '<span class="switch"><input type="checkbox" value="' + a.name + '"' + (AUTO.saved.includes(a.name) ? ' checked' : '') + '></span></label>').join('');
+  for (const b of document.querySelectorAll('#autoRows input')) b.addEventListener('change', () => { $('autoSave').disabled = !autoDirty(); say($('autoStatus'), ''); });
+}
+$('autoBtn').addEventListener('click', async () => {
+  closeMeMenu();
+  AUTO.saved = [];
+  renderAutoRows();
+  for (const b of document.querySelectorAll('#autoRows input')) b.disabled = true;
+  $('autoSave').disabled = true;
+  say($('autoStatus'), 'Checking your wallet…');
+  $('autoSign').showModal();
+  AUTO.saved = await chain.autoSignActions();
+  renderAutoRows();
+  say($('autoStatus'), AUTO.saved.length ? 'On for ' + AUTO.saved.length + ' of ' + chain.AUTO_ACTIONS.length + ' actions.' : 'Everything goes through your wallet.');
+});
+$('autoClose').addEventListener('click', () => $('autoSign').close());
+$('autoSave').addEventListener('click', async () => {
+  const want = autoChosen(), boxes = [...document.querySelectorAll('#autoRows input')];
+  boxes.forEach(b => { b.disabled = true; }); $('autoSave').disabled = true;
+  say($('autoStatus'), 'Approve it in your wallet…');
   try {
-    await chain.setQuickAttack(want);
-    note.textContent = want ? 'On: attacks sign in this browser, no wallet window. Only attacks.' : 'Off: attacks open the wallet window again.';
+    await chain.setAutoSign(want);
+    AUTO.saved = want;
+    say($('autoStatus'), want.length ? 'Saved. These actions now sign without the wallet window.' : 'Saved. Everything goes through your wallet again.');
   } catch (err) {
-    box.checked = !want;
-    note.textContent = /cancel|closed|reject|denied/i.test(String(err?.message ?? err)) ? 'Attack without the wallet window' : chain.friendlyError(err);
-  } finally { box.disabled = false; }
+    say($('autoStatus'), /cancel|closed|reject|denied/i.test(String(err?.message ?? err)) ? 'Not saved: the wallet was closed.' : chain.friendlyError(err));
+  } finally {
+    boxes.forEach(b => { b.disabled = false; });
+    $('autoSave').disabled = !autoDirty();
+  }
 });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('meMenu').hidden) { closeMeMenu(); $('who').focus(); } });
 $('signOut').addEventListener('click', async () => {
