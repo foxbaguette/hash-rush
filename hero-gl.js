@@ -370,7 +370,11 @@ void main() {
       };
       const order = cfg.shooters || ships.map((_, i) => i);
       let who = -1, aim = null;
-      if (arm.left > 0) { who = arm.bWho % ships.length; aim = arm.bAim; }   // the rest of a burst: same ship, same spot
+      if (arm.left > 0) {   // the rest of a burst: same ship, same spot, while it still has a clear line
+        const i = arm.bWho % ships.length;
+        if (clear(i, arm.bAim.dir, arm.bAim)) { who = i; aim = arm.bAim; } else arm.left = 0;
+      }
+      if (who >= 0) { /* continuing the burst */ }
       else if (cfg.scatter) {
         // a different spot every shot: anywhere on the side the viewer sees (within cfg.scatter
         // radians of the view direction), fired by whichever ship has a clear line to it

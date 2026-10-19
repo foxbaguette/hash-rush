@@ -72,8 +72,9 @@ const fleet = [['Khaured Commander', 'Legendary', 'Fire', 'Stone', 0.27, 1.75, 0
   ['Robot Supersoldier', 'Rare', 'Metal', 'XDimension', 0.18, 1.6, -0.4], ['Wise Ancient One', 'Rare', 'Air', 'Stone', 0.17, 1.45, -0.1],
   ['Nordic Warrior', 'Common', 'Fire', 'Stardust', 0.15, 1.55, 0.3], ['LG Soldier', 'Common', 'Neutral', 'Stone', 0.15, 1.4, -0.5]];
 // real weapons from the game; a ship only fires when it has a clear line to the mine
-// each shot hits a different spot, one the firing ship and the viewer can both see
-const arm = H.armory({ planet: P, every: 1.8, spread: 0.02, nearScale: 0.35, scatter: 1.05, viewDir: [-0.6 - 1.15, 0.3 + 0.05, 2.4 + 2.0],
+// each burst hits a different spot, one the firing ship and the viewer can both see; a burst is
+// a quick run of single shots, as in the game
+const arm = H.armory({ planet: P, every: 1.1, burst: { shots: 10, gap: 0.14 }, spread: 0.02, nearScale: 0.35, scatter: 1.05, viewDir: [-0.6 - 1.15, 0.3 + 0.05, 2.4 + 2.0],
   list: [['Infernal Axe', 'Gold'], ['Magori Revolver', 'Stone'], ['Storm Edge Sword', 'Stardust'], ['Randomizer Bow', 'Gold'], ['Galatic Fireblade', 'Stone']] });
 H.view(document.getElementById('hero'), t => { P.yaw = 2.068 + 0.15 * Math.sin(t * 0.12);
   return { eye: [-0.6, 0.3, 2.4], at: [0.45, -0.05, -0.9], fov: 0.66, halo: [1, 0.6, 0.35], planets: [P], fx: [arm],
