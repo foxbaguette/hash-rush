@@ -1,7 +1,7 @@
 // The Hash Rush, live screen: the planet being mined on planetmining, every crew that attacked in
 // the last 30 minutes in orbit, the attack log replayed as it comes in, and the hangar where a
 // player changes their playertag and equips crew and weapon.
-import * as chain from './chain.js?v=20261019c';
+import * as chain from './chain.js?v=20261019d';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
@@ -240,6 +240,7 @@ function showMe() {
   const p = S.player;
   $('hangarBtn').hidden = !p || S.spectating; $('connectBtn').hidden = !!p && !S.spectating;
   $('signOut').hidden = S.spectating;
+  $('quickRow').hidden = !p || S.spectating;   // quick attacks need your own signed-in wallet
   const canMenu = !!S.account;   // the hangar, the look and signing out live behind your playertag
   $('who').classList.toggle('menu', canMenu); $('who').disabled = !canMenu;
   if (!canMenu) closeMeMenu();
@@ -302,8 +303,22 @@ $('who').addEventListener('click', e => {
   const open = $('meMenu').hidden;
   $('meMenu').hidden = !open; $('who').setAttribute('aria-expanded', String(open));
   if (open) ($('hangarBtn').hidden ? document.querySelector('[data-look]') : $('hangarBtn')).focus();
+  if (open && !$('quickRow').hidden && !$('quickAttack').disabled) chain.quickAttackOn().then(on => { $('quickAttack').checked = on; });
 });
 document.addEventListener('click', e => { if (!$('meMenu').hidden && !e.target.closest('.who-wrap')) closeMeMenu(); });
+// quick attacks on or off: the wallet approves the change once, after that attacks sign by themselves
+$('quickAttack').addEventListener('change', async e => {
+  const box = e.target, want = box.checked, note = $('quickNote');
+  box.disabled = true;
+  note.textContent = want ? 'Approve it once in your wallet…' : 'Approve the removal in your wallet…';
+  try {
+    await chain.setQuickAttack(want);
+    note.textContent = want ? 'On: attacks sign in this browser, no wallet window. Only attacks.' : 'Off: attacks open the wallet window again.';
+  } catch (err) {
+    box.checked = !want;
+    note.textContent = /cancel|closed|reject|denied/i.test(String(err?.message ?? err)) ? 'Attack without the wallet window' : chain.friendlyError(err);
+  } finally { box.disabled = false; }
+});
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('meMenu').hidden) { closeMeMenu(); $('who').focus(); } });
 $('signOut').addEventListener('click', async () => {
   try { await chain.logout(); } catch (err) { console.error(err); }   // leave even if the wallet complains

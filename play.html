@@ -7,10 +7,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Michroma&family=Barlow+Condensed:wght@500;600;800&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link rel="icon" href="favicon.svg?v=20261019c" type="image/svg+xml">
-<link rel="icon" href="favicon-32.png?v=20261019c" type="image/png" sizes="32x32">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=20261019c">
-<link rel="stylesheet" href="ui.css?v=20261019c">
+<link rel="icon" href="favicon.svg?v=20261019d" type="image/svg+xml">
+<link rel="icon" href="favicon-32.png?v=20261019d" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=20261019d">
+<link rel="stylesheet" href="ui.css?v=20261019d">
 <style>
   html, body { margin: 0; height: 100%; background: #000; color: var(--ink); overflow: hidden; font: 15px/1.5 var(--text); }
   canvas#c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; opacity: 0; transition: opacity 1s; }
@@ -31,6 +31,11 @@
   .nums b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
 
   /* the look (voxels or distance fields) in your playertag menu, with sliders to try things out */
+  /* quick attacks: a switch, with a line on what it does or what is happening */
+  .me-menu .quick { padding: 8px 0 4px; }
+  .me-menu .quick .switch { justify-content: flex-end; }
+  .me-menu .quick small { display: block; max-width: 230px; margin: 6px 0 0 auto; font-size: 12px; line-height: 1.35; color: var(--mute); }
+  .me-menu .quick input:disabled { opacity: 0.5; cursor: progress; }
   .menu-look { margin: 6px 0; padding: 10px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
   .menu-look small { display: block; margin-bottom: 8px; font: 600 11px var(--label); letter-spacing: 0.3em; text-transform: uppercase; color: var(--mute); }
   .menu-look .seg { display: flex; justify-content: flex-end; border: 1px solid var(--line); }
@@ -410,6 +415,10 @@
     <button class="who" id="who" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="meMenu"></button>
     <div class="me-menu" id="meMenu" hidden>
       <button class="link" id="hangarBtn" type="button" hidden>Hangar</button>
+      <div class="quick" id="quickRow" hidden>
+        <label class="switch"><input type="checkbox" id="quickAttack">Quick attacks</label>
+        <small id="quickNote">Attack without the wallet window</small>
+      </div>
       <div class="menu-look"><small>Look</small>
         <div class="seg" role="group" aria-label="Look"><button type="button" data-look="vox">Voxels</button><button type="button" data-look="sdf">Distance field</button></div>
         <button class="link" id="lookTune" type="button" aria-expanded="false" aria-controls="lookPanel">Tune the look</button>
@@ -495,13 +504,13 @@
   </div>
 </dialog>
 
-<script src="planets-data.js?v=20261019c"></script>
-<script src="space.js?v=20261019c"></script>
-<script src="weapons-lib.js?v=20261019c"></script>
-<script src="aw-data.js?v=20261019c"></script>
-<script src="aw-designs.js?v=20261019c"></script>
-<script src="sdf.js?v=20261019c"></script>
-<script src="hero-gl.js?v=20261019c"></script>
+<script src="planets-data.js?v=20261019d"></script>
+<script src="space.js?v=20261019d"></script>
+<script src="weapons-lib.js?v=20261019d"></script>
+<script src="aw-data.js?v=20261019d"></script>
+<script src="aw-designs.js?v=20261019d"></script>
+<script src="sdf.js?v=20261019d"></script>
+<script src="hero-gl.js?v=20261019d"></script>
 <script>
 'use strict';
 /*
@@ -2362,6 +2371,6 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 </script>
-<script type="module" src="play.js?v=20261019c"></script>
+<script type="module" src="play.js?v=20261019d"></script>
 </body>
 </html>

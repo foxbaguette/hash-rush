@@ -106,13 +106,14 @@ export function chainBlocks(radius) {
 }
 
 // ---------------------------------------------------------------- wallet
+const QUICK_PERMISSION = 'hashrush';   // the account permission quick attacks are signed with
 let kit = null, current;
 let onPickerClosed = null;   // set while the wallet picker is open
 
 // The wallet code (about 600 KB) is only downloaded when someone reaches for it.
 function getKit() {
   kit ??= (async () => {
-    const { SessionKit, ChainDefinition, WebRenderer, WalletPluginAnchor, WalletPluginCloudWallet } = await import('./vendor/wharfkit.js');
+    const { SessionKit, ChainDefinition, WebRenderer, WalletPluginAnchor, WalletPluginCloudWallet } = await import('./vendor/wharfkit.js?v=4.0.2');
     const ui = new WebRenderer();
     // closing the picker (x, Escape, backdrop) cancels login silently; hear it so login() settles
     const addCancelable = ui.addCancelablePromise;
@@ -122,6 +123,9 @@ function getKit() {
       chains: [ChainDefinition.from({ id: CHAIN_ID, url: RPC_NODES[0] })],
       ui,
       walletPlugins: [new WalletPluginCloudWallet(), new WalletPluginAnchor()],
+    }, {
+      // quick attacks: a key kept in this browser that may sign planetmining::attack and nothing else
+      sessionKey: { permission: QUICK_PERMISSION, whitelist: [{ contract: CONTRACT, actions: ['attack'] }] },
     });
   })();
   kit.catch(() => { kit = null; });   // a failed download can be retried
@@ -193,6 +197,20 @@ export function setequip(weaponAssetId, crewAssetId) {
 export function attack() {
   const actor = String(current.actor), permission = String(current.permission);
   return transact([{ account: CONTRACT, name: 'attack', authorization: [{ actor, permission }], data: { wallet: actor } }]);
+}
+
+/** Quick attacks (WharfKit session keys): attacks signed in this browser without the wallet window.
+ *  Turning them on generates a key here and asks the wallet once to add it to the account as a
+ *  permission that can only call planetmining::attack; turning them off removes it again. */
+export async function quickAttackOn() {
+  if (!current) return false;
+  try { return (await current.getSessionKeyStatus()).active; } catch { return false; }
+}
+export async function setQuickAttack(on) {
+  if (!current) await restoreSession();
+  if (!current) throw new Error('Connect a wallet first.');
+  if (on) await current.setupSessionKey();
+  else if ((await current.getSessionKeyStatus()).active) await current.removeSessionKey();
 }
 
 /** Turns a wallet or chain error into a sentence a player can read. */
