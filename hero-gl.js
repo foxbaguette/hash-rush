@@ -325,11 +325,13 @@ void main() {
     }
   }
   /*
-    armory({ planet, list: [[weapon name, shine], ...], every?, delay?, spread?, nearScale?, shooters?, aimDir?, scatter?, viewDir?, burst? })
+    armory({ planet, list: [[weapon name, shine], ...], every?, delay?, spread?, nearScale?, shooters?, aimDir?, scatter?, viewDir?, burst?, turn? })
     Fires Alien Worlds weapons (aw-designs.js ARMS) from the scene's ships, one after another, at
     the planet's pit (or aimDir). Put the result in scene.fx. Craters are visual only here.
     burst: { shots, gap } fires the weapon as the game does: a quick burst of single shots
     (AWDesign.shotOf) from one ship at one spot, then waits 'every'.
+    turn: seconds the firing ship gets to turn towards its target first. While it turns and fires,
+    arm.focus = { ship, p (world), until } says which ship should face where; the scene steers it.
   */
   function armory(cfg) {
     const P = cfg.planet, def = PlanetKit.PLANETS.find(x => x.name === P.name), sc = def.scale || 0.92, R = P.R || 26;
@@ -370,9 +372,10 @@ void main() {
       };
       const order = cfg.shooters || ships.map((_, i) => i);
       let who = -1, aim = null;
-      if (arm.left > 0) {   // the rest of a burst: same ship, same spot, while it still has a clear line
+      if (arm.left > 0 || arm.ready) {   // turned and ready, or the rest of a burst: same ship, same spot, while the line stays clear
         const i = arm.bWho % ships.length;
-        if (clear(i, arm.bAim.dir, arm.bAim)) { who = i; aim = arm.bAim; } else arm.left = 0;
+        if (clear(i, arm.bAim.dir, arm.bAim)) { who = i; aim = arm.bAim; }
+        else { arm.left = 0; arm.ready = false; if (arm.focus) arm.focus.until = t; }
       }
       if (who >= 0) { /* continuing the burst */ }
       else if (cfg.scatter) {
@@ -391,6 +394,13 @@ void main() {
         for (let j = 0; j < order.length && who < 0; j++) { const i = order[(arm.k + j) % order.length] % ships.length; if (clear(i, base, a)) { who = i; aim = a; } }
       }
       if (who < 0) { arm.next = t + 0.15; return; }   // nobody has a clear shot right now
+      if (cfg.turn && !arm.ready && !(arm.left > 0)) {   // first the ship turns to face the target
+        arm.ready = true; arm.bWho = who; arm.bAim = aim;
+        arm.focus = { ship: who, p: [0, 1, 2].map(k => P.pos[k] + aim.p[k] * arm.unit), until: Infinity };
+        arm.next = t + cfg.turn;
+        return;
+      }
+      arm.ready = false;
       const tag = { ship: who, aim };
       const A = arm.world.api(tag);
       const fire = cfg.burst ? AWDesign.shotOf(name) : AWDesign.ARMS[name];
@@ -399,6 +409,7 @@ void main() {
         if (!(arm.left > 0)) { arm.left = cfg.burst.shots; arm.bWho = who; arm.bAim = aim; }
         if (--arm.left > 0) { arm.next = t + (cfg.burst.gap ?? 0.14); return; }
       }
+      if (arm.focus) arm.focus.until = t + 0.35;   // hold the aim a moment, then back to the orbit
       arm.k++; arm.next = t + (cfg.every ?? 1.8);
     };
     return arm;
