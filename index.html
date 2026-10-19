@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>The Hash Rush</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12,7 +12,8 @@
   * { box-sizing: border-box; }
   html, body { margin: 0; background: #000; color: var(--ink); font: 15px/1.55 Barlow, system-ui, sans-serif; }
   a { text-decoration: none; color: inherit; cursor: pointer; }
-  .hero { position: relative; height: 100vh; min-height: 620px; max-height: 1000px; }
+  /* the visible screen: svh leaves out the phone browser's address and tab bars, so the button is never behind them */
+  .hero { position: relative; height: 100vh; height: 100svh; min-height: min(620px, 100svh); max-height: 1000px; }
   .hero canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
   .hero::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, #000c 0%, #0006 34%, #0000 58%), linear-gradient(#0000 78%, #000 100%); pointer-events: none; }
   .copy { position: absolute; z-index: 2; left: 64px; bottom: 12vh; max-width: 560px; }
@@ -33,7 +34,11 @@
   .su .row { display: flex; align-items: center; gap: 18px; margin-top: 6px; }
   .su .link { margin-top: 30px; }
   @media (max-width: 860px) {
-    .copy { left: 20px; right: 20px; bottom: 60px; }
+    .copy { left: calc(20px + env(safe-area-inset-left, 0px)); right: calc(20px + env(safe-area-inset-right, 0px)); bottom: calc(40px + env(safe-area-inset-bottom, 0px)); }
+  }
+  @media (max-height: 640px) {   /* short screens: tighter copy so the button stays well clear of the bottom */
+    .copy { bottom: calc(24px + env(safe-area-inset-bottom, 0px)); }
+    .copy .btn { margin-top: 18px; }
   }
 </style>
 </head>
