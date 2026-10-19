@@ -165,6 +165,45 @@ void main() {
   // shader has compiled (until then, and for anything without a crew card, the voxel ship)
   const kit = typeof ShipKit !== 'undefined' ? ShipKit.create(gl) : null;
   if (kit) kit.prewarm();
+  // planets in the game's distance-field look (sdf.js, loaded before this file): the planet's cells as
+  // a smooth surface with the game's planet settings; the voxel planet until its copy is built
+  const sdf = typeof SdfKit !== 'undefined' ? SdfKit.create(gl, 64) : null, sdfVao = gl.createVertexArray();
+  function sdfPlanet(m) {
+    if (m.sdf !== undefined) return m.sdf;
+    const { kind, colour, N } = m.grid, pos = [], col = [];
+    for (let k = 0; k < N; k++) for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+      const idx = i + j * N + k * N * N;
+      if (!kind[idx]) continue;
+      pos.push(i - N / 2, j - N / 2, k - N / 2);
+      col.push(colour[idx * 4], colour[idx * 4 + 1], colour[idx * 4 + 2], colour[idx * 4 + 3]);
+    }
+    const md = sdf.modelTextures(pos, new Uint8Array(col));
+    sdf.modelSoft(md, SdfKit.DEFAULTS.planet.soft);
+    gl.activeTexture(gl.TEXTURE0);
+    return (m.sdf = md);
+  }
+  function drawSdfPlanet(md, pos, r, u, f, s, VP, eye, t) {
+    const pr = sdf.progs().shipProg, U2 = pr.u, L = SdfKit.DEFAULTS.planet, D = SdfKit.DEFAULTS;
+    gl.useProgram(pr.p);
+    gl.uniformMatrix4fv(U2.uMVP, false, mul(VP, new Float32Array([r[0] * s, r[1] * s, r[2] * s, 0, u[0] * s, u[1] * s, u[2] * s, 0, f[0] * s, f[1] * s, f[2] * s, 0, pos[0], pos[1], pos[2], 1])));
+    const dc = sub(eye, pos);
+    gl.uniform3fv(U2.uCamM, [dot(r, dc) / s, dot(u, dc) / s, dot(f, dc) / s]);
+    gl.uniform3fv(U2.uLight, [dot(r, LW), dot(u, LW), dot(f, LW)]);
+    gl.uniform3fv(U2.uBoxMin, md.box[0]); gl.uniform3fv(U2.uBoxMax, md.box[1]);
+    gl.uniform3fv(U2.uOrigin, md.origin); gl.uniform3fv(U2.uDims, md.dims); gl.uniform1f(U2.uCell, 1);
+    gl.uniform1f(U2.uSmooth, L.smooth); gl.uniform1f(U2.uSoft, L.soft); gl.uniform1f(U2.uRound, L.round);
+    gl.uniform1f(U2.uNoise, L.noise); gl.uniform1f(U2.uColBlend, L.colBlend); gl.uniform1f(U2.uSphere, L.sphere);
+    gl.uniform1f(U2.uGloss, L.gloss ?? 1); gl.uniform1f(U2.uTex, L.tex || 0); gl.uniform1f(U2.uTexScale, L.texScale || 1); gl.uniform1f(U2.uSlope, L.slope || 0);
+    gl.uniform1f(U2.uStep, D.step); gl.uniform1f(U2.uAO, D.ao); gl.uniform1f(U2.uT, t);
+    gl.uniform1i(U2.uDens, 3); gl.uniform1i(U2.uCol, 4); gl.uniform1i(U2.uSoftD, 5); gl.uniform1f(U2.uBound, 0);
+    gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_3D, md.soft);
+    gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_3D, md.col);
+    gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_3D, md.dens);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindVertexArray(sdfVao);
+    gl.drawArrays(gl.TRIANGLES, 0, 36);
+    gl.useProgram(prog);
+  }
   const basisOf = p => { const yaw = p.yaw || 0, tilt = p.tilt ?? 0.3, cy = Math.cos(yaw), sy = Math.sin(yaw), ct = Math.cos(tilt), st = Math.sin(tilt); return [[cy, 0, -sy], [sy * st, ct, cy * st], [sy * ct, -st, cy * ct]]; };
   // world position of a point on (or k times the radius of) a planet, given a direction in the planet's own frame
   const surface = (p, dir, k = 1) => { const [r, u, f] = basisOf(p), d = norm(dir); return [0, 1, 2].map(i => p.pos[i] + (r[i] * d[0] + u[i] * d[1] + f[i] * d[2]) * p.size * k); };
@@ -195,7 +234,7 @@ void main() {
   function planetModel(p) {
     const key = JSON.stringify([p.name, p.R || 26, p.cut, p.pit]);
     if (planetCache.has(key)) return planetCache.get(key);
-    const def = PlanetKit.PLANETS.find(d => d.name === p.name), R = p.R || 26, ext = def.ext || 1.02;
+    const def = PlanetKit.PLANETS.find(d => d.name === p.name || (d.aka || []).includes(p.name)), R = p.R || 26, ext = def.ext || 1.02;
     const half = Math.ceil(R * ext) + 1, N = half * 2, Cc = N / 2, NN = N * N;
     const kind = new Uint8Array(N * NN), colour = new Uint8Array(N * NN * 4);
     const pit = p.pit && { d: norm(p.pit.dir), r: p.pit.r, depth: p.pit.depth };
@@ -214,6 +253,7 @@ void main() {
     }
     const m = upload(packed(kind, colour, N));
     m.scale = (def.scale || 0.92) / R;
+    m.grid = { kind, colour, N };
     planetCache.set(key, m);
     return m;
   }
@@ -285,7 +325,9 @@ void main() {
       gl.enable(gl.DEPTH_TEST); gl.useProgram(prog);
       for (const p of sc.planets || []) {
         const m = planetModel(p), [r, u, f] = basisOf(p);
-        draw(m, model(p.pos, r, u, f), VP, sc.eye, 1, m.scale * p.size, v.t);
+        // the distance-field copy is built at most once per frame (the voxel planet shows meanwhile)
+        if (sdf && m.grid && (m.sdf !== undefined || !builds++)) drawSdfPlanet(sdfPlanet(m), p.pos, r, u, f, m.scale * p.size, VP, sc.eye, v.t);
+        else draw(m, model(p.pos, r, u, f), VP, sc.eye, 1, m.scale * p.size, v.t);
       }
       const shipsOut = [], kitShips = [];
       for (const s of sc.ships || []) {
@@ -357,7 +399,7 @@ void main() {
     arm.focus = { ship, p (world), until } says which ship should face where; the scene steers it.
   */
   function armory(cfg) {
-    const P = cfg.planet, def = PlanetKit.PLANETS.find(x => x.name === P.name), sc = def.scale || 0.92, R = P.R || 26;
+    const P = cfg.planet, def = PlanetKit.PLANETS.find(x => x.name === P.name || (x.aka || []).includes(P.name)), sc = def.scale || 0.92, R = P.R || 26;
     const unit = () => P.size * sc;
     const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]], jit = s => [(Math.random() - 0.5) * 2 * s, (Math.random() - 0.5) * 2 * s, (Math.random() - 0.5) * 2 * s];
     const toL = w => [0, 1, 2].map(i => (w[i] - P.pos[i]) / unit());

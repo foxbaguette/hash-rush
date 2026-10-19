@@ -7,10 +7,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Michroma&family=Barlow+Condensed:wght@500;600;800&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link rel="icon" href="favicon.svg?v=20261019y" type="image/svg+xml">
-<link rel="icon" href="favicon-32.png?v=20261019y" type="image/png" sizes="32x32">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=20261019y">
-<link rel="stylesheet" href="ui.css?v=20261019y">
+<link rel="icon" href="favicon.svg?v=20261020b" type="image/svg+xml">
+<link rel="icon" href="favicon-32.png?v=20261020b" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=20261020b">
+<link rel="stylesheet" href="ui.css?v=20261020b">
 <style>
   html, body { margin: 0; height: 100%; background: #000; color: var(--ink); overflow: hidden; font: 15px/1.5 var(--text); }
   canvas#c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; opacity: 0; transition: opacity 1s; }
@@ -187,6 +187,12 @@
   .cpu-bal { margin: 4px 0 0; font-size: 13px; color: var(--mute); }
   .cpu-foot { display: flex; align-items: center; gap: 14px; margin-top: 14px; }
   .cpu-foot .status { flex: 1; margin: 0; font-size: 13px; color: var(--mute); }
+  /* the hashling market */
+  .mk-pool { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 6px; }
+  .mk-pool small { display: block; font: 600 11px var(--label); letter-spacing: 0.3em; text-transform: uppercase; color: var(--mute); }
+  .mk-pool b { display: inline-block; margin-right: 6px; font: 400 22px var(--display); font-weight: 400; color: var(--ink); }
+  .mk-pool span { color: var(--mute); font-size: 14px; }
+  .market .cpu-in .link { margin-left: auto; }
   @media (max-width: 640px) and (orientation: portrait) {
     dialog.history { width: 100vw; max-height: 100dvh; height: 100dvh; margin: 0; border: 0; }
     .history .head { padding: calc(14px + var(--sat)) 16px 8px; }
@@ -489,12 +495,8 @@
       <button class="link" id="hangarBtn" type="button" hidden>Hangar</button>
       <button class="link" id="autoBtn" type="button" hidden>Auto-sign</button>
       <button class="link" id="historyBtn" type="button">Destroyed planets</button>
+      <button class="link" id="marketBtn" type="button">Hashling market</button>
       <button class="link" id="cpuBtn" type="button">CPU and powerup</button>
-      <div class="menu-look"><small>Look</small>
-        <div class="seg" role="group" aria-label="Look"><button type="button" data-look="vox">Voxels</button><button type="button" data-look="sdf">Distance field</button></div>
-        <button class="link" id="lookTune" type="button" aria-expanded="false" aria-controls="lookPanel">Tune the look</button>
-      </div>
-      <button class="link" id="simHash" type="button">Simulate hash found</button>
       <button class="link" id="signOut" type="button">Sign out</button>
     </div>
   </div>
@@ -533,6 +535,24 @@
 <dialog class="history" id="history" aria-labelledby="historyTitle">
   <div class="head"><div><div class="eyebrow">The hash rush so far</div><h2 id="historyTitle">Destroyed planets</h2></div><button class="link" id="historyClose" type="button">Close</button></div>
   <div class="list" id="historyList"></div>
+</dialog>
+
+<dialog class="history cpu market" id="market" aria-labelledby="marketTitle">
+  <div class="head"><div><div class="eyebrow">Hashlings for shards</div><h2 id="marketTitle">Hashling market</h2></div><button class="link" id="marketClose" type="button">Close</button></div>
+  <div class="list">
+    <div class="mk-pool">
+      <div><small>In the pool</small><b id="mkPoolH">–</b><span>hashlings</span></div>
+      <div><small>&nbsp;</small><b id="mkPoolS">–</b><span>shards</span></div>
+    </div>
+    <p class="cpu-note" id="mkInfo"></p>
+    <div class="cpu-up">
+      <div class="eyebrow">Swap</div>
+      <label class="cpu-in"><input id="mkIn" type="number" min="1" step="1" value="100" inputmode="numeric"><span>Hashlings</span><button class="link" id="mkMax" type="button">Max</button></label>
+      <p class="cpu-get">You get about <b id="mkOut">–</b> shards.</p>
+      <p class="cpu-bal">You have <span id="mkHave">–</span> · at least <span id="mkMin">–</span> shards, or the swap is not made</p>
+      <div class="cpu-foot"><button class="btn small" id="mkSwap" type="button">Swap</button><p class="status" id="mkStatus" role="status"></p></div>
+    </div>
+  </div>
 </dialog>
 
 <dialog class="history cpu" id="cpu" aria-labelledby="cpuTitle">
@@ -608,16 +628,16 @@
   </div>
 </dialog>
 
-<script src="planets-data.js?v=20261019y"></script>
-<script src="space.js?v=20261019y"></script>
-<script src="weapons-lib.js?v=20261019y"></script>
-<script src="aw-data.js?v=20261019y"></script>
-<script src="aw-designs.js?v=20261019y"></script>
-<script src="shots.js?v=20261019y"></script>
-<script src="sdf.js?v=20261019y"></script>
-<script src="ships-sdf.js?v=20261019y"></script>
-<script src="hero-gl.js?v=20261019y"></script>
-<script src="ranks.js?v=20261019y"></script>
+<script src="planets-data.js?v=20261020b"></script>
+<script src="space.js?v=20261020b"></script>
+<script src="weapons-lib.js?v=20261020b"></script>
+<script src="aw-data.js?v=20261020b"></script>
+<script src="aw-designs.js?v=20261020b"></script>
+<script src="shots.js?v=20261020b"></script>
+<script src="sdf.js?v=20261020b"></script>
+<script src="ships-sdf.js?v=20261020b"></script>
+<script src="hero-gl.js?v=20261020b"></script>
+<script src="ranks.js?v=20261020b"></script>
 <script>
 'use strict';
 /*
@@ -701,8 +721,9 @@ const DEFAULT_WEAPON = 'Standard Sword|Stone';
 const SLOTS = 64;          // frames of removals that can be melting at once
 const MELT = 0.55;         // seconds for a hit block to melt away
 const ATTACK_SECONDS = 3;  // everything asked for is destroyed within this time
-const HALOS = { Magor: [1, 0.42, 0.12], Cinder: [1, 0.42, 0.12], Janus: [1, 0.5, 0.25], Bog: [0.5, 1, 0.3],
-  Brine: [1, 0.6, 0.75], Lantern: [1, 0.9, 0.5], Geode: [0.75, 0.55, 1], Dune: [1, 0.7, 0.4], Halo: [1, 0.8, 0.55] };
+const HALOS = { Magor: [1, 0.42, 0.12], Cinder: [1, 0.42, 0.12], Janus: [1, 0.5, 0.25], Noxa: [0.5, 1, 0.3],
+  Brine: [1, 0.6, 0.75], Lantern: [1, 0.9, 0.5], Geode: [0.75, 0.55, 1], Dune: [1, 0.7, 0.4], Halo: [1, 0.8, 0.55],
+  Luna: [0.8, 0.85, 0.95], Bonbon: [1, 0.6, 0.85], Hive: [1, 0.75, 0.3], Aurora: [0.4, 1, 0.7], Melon: [1, 0.45, 0.5] };
 
 // ---------------------------------------------------------------------------
 // shaders
@@ -1864,7 +1885,7 @@ const planet = {
   },
   // the contract's planet: name, radius and seed, with this share of its blocks still standing
   load(name, radius, newSeed, shareLeft) {
-    const i = PLANETS.findIndex(p => p.name.toLowerCase() === String(name).toLowerCase());
+    const i = PLANETS.findIndex(p => [p.name, ...(p.aka || [])].some(n => n.toLowerCase() === String(name).toLowerCase()));   // a renamed planet still answers to its old name
     if (i < 0) return false;
     if (BRK.on) { BRK.on = false; BRK.form = clock; canvas.style.transform = ''; world.api(null).flash([0, 0, 0], 1.1, [0.5, 0.85, 1], 0.6); }   // after a break-up: the next planet warps in
     pIdx = i; liveR = Math.max(4, radius | 0); showPlanetInfo();
@@ -1876,7 +1897,7 @@ const planet = {
     return true;
   },
   select(name) {
-    const i = PLANETS.findIndex(p => p.name.toLowerCase() === String(name).toLowerCase());
+    const i = PLANETS.findIndex(p => [p.name, ...(p.aka || [])].some(n => n.toLowerCase() === String(name).toLowerCase()));   // a renamed planet still answers to its old name
     if (i < 0) return false;
     pIdx = i;
     showPlanetInfo();
@@ -2098,8 +2119,8 @@ function showLookPanel(open) {
   $('lookPanel').hidden = !open; $('lookTune').setAttribute('aria-expanded', String(open));
   if (open) renderLookPanel();
 }
-$('lookTune').addEventListener('click', () => { $('meMenu').hidden = true; $('who').setAttribute('aria-expanded', 'false'); showLookPanel($('lookPanel').hidden); });
-setLook(looks.on, false);
+$('lookTune')?.addEventListener('click', () => { $('meMenu').hidden = true; $('who').setAttribute('aria-expanded', 'false'); showLookPanel($('lookPanel').hidden); });
+setLook(true, false);   // the distance-field look is the game's look (the switch is gone from the menu)
 
 function resize() {
   const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
@@ -2554,6 +2575,6 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 </script>
-<script type="module" src="play.js?v=20261019y"></script>
+<script type="module" src="play.js?v=20261020b"></script>
 </body>
 </html>

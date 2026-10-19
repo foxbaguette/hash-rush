@@ -267,6 +267,37 @@ export async function powerup(wax) {
     data: { payer: actor, receiver: actor, days: 1, net_frac: 0, cpu_frac: String(frac), max_payment: wax.toFixed(8) + ' WAX' } }]);
 }
 
+// ---------------------------------------------------------------- the hashling market (swap pool)
+/** The swap pool { hashlings, shards } and its config { shards_per_minute, last_update }; null while there is none. */
+export const getSwapPool = () => rows('swappool').then(r => r[0] || null).catch(() => null);
+export const getSwapConfig = () => rows('swapconfig').then(r => r[0] || null).catch(() => null);
+/** Whether the deployed contract has the swap action yet. */
+let swapCheck = null;
+export function hasSwap() {
+  swapCheck ??= rpc('/v1/chain/get_abi', { account_name: CONTRACT })
+    .then(r => !!r.abi?.actions?.some(a => a.name === 'swap'))
+    .catch(() => { swapCheck = null; return false; });
+  return swapCheck;
+}
+/** The pool as the contract will see it at time `now` (seconds): the shards that flowed in, in full
+ *  minutes, swapped against it first (the same integer maths as the contract). */
+export function poolAt(pool, cfg, now) {
+  let h = BigInt(pool.hashlings), sh = BigInt(pool.shards);
+  if (cfg && Number(cfg.shards_per_minute) > 0) {
+    const minutes = BigInt(Math.max(0, Math.floor((now - chainTime(cfg.last_update)) / 60)));
+    const inflow = minutes * BigInt(cfg.shards_per_minute);
+    if (inflow > 0n && sh + inflow > 0n) { h -= h * inflow / (sh + inflow); sh += inflow; }
+  }
+  return { hashlings: h, shards: sh };
+}
+/** Shards out for hashlings in, against a pool from poolAt. */
+export const quoteShards = (p, hashlings) => { const x = BigInt(hashlings); return x > 0n ? p.shards * x / (p.hashlings + x) : 0n; };
+/** Swaps hashlings for shards; fails on the chain if fewer than minShards would come out. */
+export function swap(hashlings, minShards) {
+  const actor = String(current.actor), permission = String(current.permission);
+  return transact([{ account: CONTRACT, name: 'swap', authorization: [{ actor, permission }], data: { wallet: actor, hashlings: String(hashlings), min_shards: String(minShards) } }]);
+}
+
 /** Whether the deployed contract's attack takes "mine" (mining: hashlings per block, automated tasks).
  *  Read once from the contract's ABI, so the site works before and after that version is deployed. */
 let mineCheck = null;

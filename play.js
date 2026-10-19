@@ -1,8 +1,8 @@
 // The Hash Rush, live screen: the planet being mined on planetmining, every crew that attacked in
 // the last 30 minutes in orbit, the attack log replayed as it comes in, and the hangar where a
 // player changes their playertag and equips crew and weapon.
-import * as chain from './chain.js?v=20261019y';
-import * as gains from './gains.js?v=20261019y';
+import * as chain from './chain.js?v=20261020b';
+import * as gains from './gains.js?v=20261020b';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
@@ -147,15 +147,6 @@ function showBand(log) {
   };
   tick();
 }
-// a test run of the whole sequence on this screen only (nothing goes to the chain): you find the
-// hash with a small hit, and the planet you were on comes back as the "next" one, as the chain has it
-$('simHash').addEventListener('click', () => {
-  closeMeMenu();
-  if (S.seq || !S.track) return;
-  const tag = S.player ? S.player.playertag : (S.account || 'Test');
-  playHit({ index: Number.MAX_SAFE_INTEGER, wallet: S.account || '', playertag: tag, damage_done: Math.max(1, Math.round(S.shown.total * 0.002)), hash_found: 1, simulated: true });
-  setTimeout(() => { if (S.seq && !S.nextTrack) S.nextTrack = { ...S.track }; }, 6000);
-});
 function arrive() {
   const tr = S.nextTrack;
   S.nextTrack = null;
@@ -392,7 +383,7 @@ $('who').addEventListener('click', e => {
   e.stopPropagation();
   const open = $('meMenu').hidden;
   $('meMenu').hidden = !open; $('who').setAttribute('aria-expanded', String(open));
-  if (open) ($('hangarBtn').hidden ? document.querySelector('[data-look]') : $('hangarBtn')).focus();
+  if (open) ($('hangarBtn').hidden ? $('historyBtn') : $('hangarBtn')).focus();
 });
 document.addEventListener('click', e => { if (!$('meMenu').hidden && !e.target.closest('.who-wrap')) closeMeMenu(); });
 // auto-sign: a switch per action; Save applies them together (the wallet approves once)
@@ -484,6 +475,57 @@ $('cpuUp').addEventListener('click', async () => {
   finally { $('cpuUp').disabled = false; }
 });
 $('cpuClose').addEventListener('click', () => $('cpu').close());
+
+// the hashling market: hashlings into the swap pool, shards out. Every full minute shards flow into the pool
+// and take hashlings out (the chain adds that up at the next swap), so the quote counts them in first
+const MK = { pool: null, cfg: null };
+const big = x => Number(x).toLocaleString('en-US');
+const hashlingsHave = () => statOf(S.player, 'hashlings');
+function mkQuote() {
+  const n = Math.floor(Number($('mkIn').value));
+  if (!MK.pool) { $('mkOut').textContent = '–'; $('mkMin').textContent = '–'; return 0n; }
+  const p = chain.poolAt(MK.pool, MK.cfg, Date.now() / 1000);
+  $('mkPoolH').textContent = big(p.hashlings); $('mkPoolS').textContent = big(p.shards);
+  if (!(n > 0)) { $('mkOut').textContent = '–'; $('mkMin').textContent = '–'; return 0n; }
+  const out = chain.quoteShards(p, n);
+  $('mkOut').textContent = big(out); $('mkMin').textContent = big(out * 99n / 100n);
+  return out;
+}
+async function mkLoad() {
+  const has = await chain.hasSwap();   // the tables only exist once the contract with the market is deployed
+  const [pool, cfg] = has ? await Promise.all([chain.getSwapPool(), chain.getSwapConfig()]) : [null, null];
+  MK.pool = pool; MK.cfg = cfg;
+  const open = has && pool && Number(pool.shards) > 0;
+  $('mkSwap').disabled = !open || !!S.spectating || !S.player;
+  $('mkInfo').textContent = !has ? 'The market opens soon.' : !pool ? 'The pool has no liquidity yet.'
+    : (cfg && Number(cfg.shards_per_minute) > 0 ? big(cfg.shards_per_minute) + ' shards flow into the pool every minute and take hashlings out of it, so shards slowly get cheaper.' : 'The more you swap at once, the higher the price of each shard.');
+  $('mkHave').textContent = S.player ? big(hashlingsHave()) + ' hashlings · ' + big(statOf(S.player, 'shards')) + ' shards' : 'no player yet';
+  if (S.spectating) say($('mkStatus'), 'Watching: connect your own wallet to swap.');
+  mkQuote();
+}
+$('marketBtn').addEventListener('click', async () => {
+  closeMeMenu(); say($('mkStatus'), '');
+  $('market').showModal();
+  try { await mkLoad(); } catch (err) { say($('mkStatus'), 'Could not read the chain right now.', true); console.error(err); }
+  clearInterval(MK.tick); MK.tick = setInterval(() => { if (!$('market').open) clearInterval(MK.tick); else mkQuote(); }, 5000);   // the inflow keeps moving the price
+});
+$('mkIn').addEventListener('input', mkQuote);
+$('mkMax').addEventListener('click', () => { $('mkIn').value = hashlingsHave(); mkQuote(); });
+$('mkSwap').addEventListener('click', async () => {
+  const n = Math.floor(Number($('mkIn').value));
+  if (!(n > 0)) return say($('mkStatus'), 'Enter how many hashlings to swap.', true);
+  if (n > hashlingsHave()) return say($('mkStatus'), 'You have ' + big(hashlingsHave()) + ' hashlings.', true);
+  const out = mkQuote();
+  if (out <= 0n) return say($('mkStatus'), 'Too few hashlings for a single shard.', true);
+  $('mkSwap').disabled = true; say($('mkStatus'), 'Confirm in your wallet…');
+  try {
+    await chain.swap(n, out * 99n / 100n);   // at most 1% fewer shards than shown, or the chain turns it down
+    say($('mkStatus'), 'Swapped ' + big(n) + ' hashlings for about ' + big(out) + ' shards.');
+    setTimeout(async () => { try { S.player = await chain.getPlayer(S.account); showMe(); } catch { /* next poll */ } mkLoad().catch(() => undefined); }, 1500);
+  } catch (err) { say($('mkStatus'), chain.friendlyError(err), true); }
+  finally { $('mkSwap').disabled = false; }
+});
+$('marketClose').addEventListener('click', () => $('market').close());
 $('autoSave').addEventListener('click', async () => {
   const want = autoChosen(), boxes = [...document.querySelectorAll('#autoRows input')];
   boxes.forEach(b => { b.disabled = true; }); $('autoSave').disabled = true;

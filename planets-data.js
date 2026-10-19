@@ -1,6 +1,6 @@
 'use strict';
 /*
-  The twenty planets, shared by the game (index.html) and the style sheet (planets.html).
+  The planets, shared by the game (index.html) and the style sheet (planets.html).
 
   Each planet:
     shape(dir)  surface radius as a fraction of R (<= 1) for a unit direction
@@ -46,6 +46,17 @@ const PlanetKit = (() => {
   const mixc = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
   const vary = (c, j, amt = 0.12) => [c[0] * (1 - amt / 2 + amt * j), c[1] * (1 - amt / 2 + amt * j), c[2] * (1 - amt / 2 + amt * j)];
   const sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+  // longitude and latitude of a direction, and a hex grid over them (0 on a cell wall)
+  const lon = d => Math.atan2(d[2], d[0]), lat = d => Math.asin(Math.max(-1, Math.min(1, d[1])));
+  function hexWall(d, k) {
+    const u = lon(d) * k * Math.cos(lat(d)), v = lat(d) * k;
+    const q = (Math.sqrt(3) / 3 * u - v / 3), r = 2 / 3 * v;
+    let rx = Math.round(q), rz = Math.round(r), ry = Math.round(-q - r);
+    const dx = Math.abs(rx - q), dy = Math.abs(ry + q + r), dz = Math.abs(rz - r);
+    if (dx > dy && dx > dz) rx = -ry - rz; else if (dy <= dz) rz = -rx - ry;
+    const fx = q - rx, fz = r - rz, fy = -fx - fz;
+    return 0.5 - Math.max(Math.abs(fx), Math.abs(fy), Math.abs(fz));
+  }
   // pick an interior layer by radius fraction (boundaries wobble a little)
   function layer(c, list) {
     const f = c.f + (c.wob - 0.5) * 0.06;
@@ -303,7 +314,7 @@ const PlanetKit = (() => {
       },
     },
     {
-      name: 'Bog', tagline: 'Toxic',
+      name: 'Noxa', aka: ['Bog'], tagline: 'Toxic',
       blurb: 'Purple mud and yellow sulphur crust around glowing acid-green pools. The rock below is banded with sulphur, and the core glows radioactive green.',
       surface: [['Purple mud', '#4a2a5a'], ['Sulphur crust', '#d9c83a'], ['Acid pools', '#7dff3a', 1]],
       inside: [['Sulphur strata', '#b5a62e'], ['Dark shale', '#2e2436'], ['Radioactive core', '#9dff3a', 1]],
@@ -395,6 +406,90 @@ const PlanetKit = (() => {
         if (c.f < 0.2) return [vary(C('#3fffd2'), c.j, 0.05), 0.9, 'energy'];
         if (Math.abs(c.n3 - 0.5) < 0.035) return [vary(C('#d8e8ff'), c.j, 0.05), 0.5, 'energy'];
         return [vary(C('#1d2238'), c.j, 0.2), 0];
+      },
+    },
+    // ============ added from the planet sheet ============
+    {
+      name: 'Luna', tagline: 'A wandering moon',
+      blurb: 'Not round at all: a lumpy potato of grey rock pocked with craters, dragged in from the belt. Crack it and it is full of iron-nickel veins and pockets of old ice.',
+      surface: [['Regolith', '#7d776f'], ['Crater floor', '#55504a'], ['Fresh rock', '#a49d92']],
+      inside: [['Breccia', '#5f5a54'], ['Iron-nickel', '#b9b2a6'], ['Ice pocket', '#cfeaff'], ['Dense core', '#3e3a37']],
+      shape: d => {
+        let s = 0.81 + dn(d, 1.15, 3101, 3) * 0.2;
+        for (let i = 0; i < 9; i++) {   // craters: shallow bowls with a raised rim
+          const a = h3(i, 0, 0, 3103) * 2 - 1, t = h3(i, 1, 0, 3103) * 6.283, q = Math.sqrt(1 - a * a);
+          const dist = Math.acos(Math.min(1, d[0] * q * Math.cos(t) + d[1] * a + d[2] * q * Math.sin(t)));
+          const rad = 0.18 + h3(i, 2, 0, 3103) * 0.28;
+          if (dist < rad) s -= 0.07 * (1 - (dist / rad) ** 2); else if (dist < rad * 1.3) s += 0.02;
+        }
+        return Math.max(0.8, Math.min(1, s));
+      },
+      block(c) {
+        if (c.depth < 1.5) return [vary(c.s < 0.86 ? C('#55504a') : dn(c.dir, 9, 3105) > 0.66 ? C('#a49d92') : C('#7d776f'), c.j, 0.16), 0];
+        if (c.n3 > 0.66) return [vary(C('#cfeaff'), c.j, 0.05), 0.04, 'ice'];
+        if (Math.abs(c.n3 - 0.4) < 0.025) return [vary(C('#b9b2a6'), c.j, 0.08), 0, 'metal'];
+        return layer(c, [{ f: 0.35, col: '#5f5a54', v: 0.2 }, { f: 0, col: '#3e3a37' }]);
+      },
+    },
+    {
+      name: 'Bonbon', tagline: 'Candy world',
+      blurb: 'Swirled pastel candy stripes like a giant boiled sweet. Inside, layer after layer of rock candy in every colour, around a gooey glowing raspberry centre.',
+      surface: [['Pink stripe', '#ff8fc8'], ['Mint stripe', '#8ff0cf'], ['Lemon stripe', '#fff08a'], ['Sugar white', '#fff7fb']],
+      inside: [['Rock candy', '#ffb3de'], ['Lavender candy', '#c7a8ff'], ['Mint candy', '#9ff5d8'], ['Raspberry goo', '#ff2e7a', 1]],
+      shape: () => 0.97,
+      block(c) {
+        if (c.depth < 1.6) {
+          const sw = (lon(c.dir) + lat(c.dir) * 2.2 + dn(c.dir, 2, 3201) * 1.2) * 3 / Math.PI;
+          return [vary(C(['#ff8fc8', '#fff7fb', '#8ff0cf', '#fff7fb', '#fff08a', '#fff7fb'][((Math.floor(sw * 2) % 6) + 6) % 6]), c.j, 0.05), 0.04, 'crystal'];
+        }
+        if (c.f < 0.24) return [vary(C('#ff2e7a'), c.j, 0.06), 0.65, 'energy'];
+        const band = Math.floor((c.f + (c.wob - 0.5) * 0.05) * 16) % 3;
+        return [vary(C(['#ffb3de', '#c7a8ff', '#9ff5d8'][band]), c.j, 0.06), 0.06, 'crystal'];
+      },
+    },
+    {
+      name: 'Hive', tagline: 'Honeycomb world',
+      blurb: 'Wax hexagons from pole to pole, some capped, some dripping with honey. Underneath, the comb goes deep, full of cells and glowing honey, around a royal jelly heart.',
+      surface: [['Wax comb', '#e3b23c'], ['Capped cell', '#f4d27a'], ['Honey', '#ff9f1a', 1]],
+      inside: [['Comb', '#c98f22'], ['Honey cells', '#ff9f1a', 1], ['Royal jelly', '#fff2c2', 1]],
+      shape: () => 0.97,
+      block(c) {
+        if (c.depth < 1.6) {
+          const w = hexWall(c.dir, 9);
+          if (w < 0.07) return [vary(C('#e3b23c'), c.j, 0.06), 0];
+          return h3(Math.round(lon(c.dir) * 9), Math.round(lat(c.dir) * 9), 0, 3601) > 0.5 ? [vary(C('#f4d27a'), c.j, 0.05), 0] : [vary(C('#ff9f1a'), c.j, 0.05), 0.35, 'water'];
+        }
+        if (c.f < 0.18) return [C('#fff2c2'), 0.7, 'energy'];
+        return c.n3 > 0.55 ? [vary(C('#ff9f1a'), c.j, 0.06), 0.3, 'water'] : [vary(C('#c98f22'), c.j, 0.1), 0];
+      },
+    },
+    {
+      name: 'Aurora', tagline: 'Northern lights',
+      blurb: 'A dark blue ice world where green and violet curtains of light never stop dancing over the poles. Under the ice is deep blue glacier, then a warm salty sea around a stone core.',
+      surface: [['Night ice', '#1f3a66'], ['Aurora green', '#5affa0', 1], ['Aurora violet', '#b07aff', 1]],
+      inside: [['Glacier', '#3a6fb0'], ['Salt sea', '#1fb0c8', 1], ['Stone core', '#4f4a5a']],
+      shape: () => 0.97,
+      block(c) {
+        if (c.depth < 1.6) {
+          const band = Math.abs(c.lat) - 0.55 + Math.sin(lon(c.dir) * 5 + dn(c.dir, 3, 4401) * 5) * 0.08;
+          if (Math.abs(band) < 0.07) return [mixc(C('#5affa0'), C('#b07aff'), sstep(-0.07, 0.07, band)), 0.8, 'energy'];
+          return [vary(C('#1f3a66'), c.j, 0.1), 0.02, 'ice'];
+        }
+        return layer(c, [{ f: 0.6, col: '#3a6fb0', m: 'ice' }, { f: 0.25, col: '#1fb0c8', e: 0.35, m: 'water' }, { f: 0, col: '#4f4a5a' }]);
+      },
+    },
+    {
+      name: 'Melon', tagline: 'Summer slice',
+      blurb: 'Striped dark and light green rind on the outside. A thin white layer, then sweet red flesh full of black seeds, around a juicy glowing heart.',
+      surface: [['Dark stripe', '#1f6a2a'], ['Light stripe', '#7fc456']],
+      inside: [['White rind', '#e9f5d0'], ['Red flesh', '#ff4a5a'], ['Seeds', '#1a1414'], ['Juicy heart', '#ff8a9a', 1]],
+      shape: d => 0.96 + Math.abs(Math.sin(lon(d) * 7)) * 0.015,
+      block(c) {
+        if (c.depth < 1.6) return [vary(Math.sin(lon(c.dir) * 7 + dn(c.dir, 4, 4601) * 1.2) > 0 ? C('#1f6a2a') : C('#7fc456'), c.j, 0.06), 0];
+        if (c.d24 < 3) return [vary(C('#e9f5d0'), c.j, 0.05), 0];
+        if (c.f < 0.15) return [C('#ff8a9a'), 0.6, 'water'];
+        if (c.f > 0.35 && c.f < 0.75 && c.h > 0.94) return [C('#1a1414'), 0];
+        return [vary(C('#ff4a5a'), c.j, 0.08), 0.05, 'water'];
       },
     },
   ];
