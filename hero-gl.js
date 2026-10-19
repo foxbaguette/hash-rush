@@ -6,7 +6,7 @@
   callback can paint glows, beams and HUD lines on top using project().
 
     HeroGL.view(canvas, t => scene, overlay?)
-    scene = { eye, at, fov?, sky?: true, halo?: [r,g,b],
+    scene = { eye, at, fov?, up?, sky?: true, halo?: [r,g,b], haloAtm?: 1, haloSun?: [x,y] (screen direction of the lit side), light?: [x,y,z],
               planets: [{ name, pos, R?, size, yaw?, tilt?, pit?: { dir, r, depth } | cut?: true }],
               ships:   [{ name, rarity, element?, shine?, pos, fwd, up?, size }] }
 */
@@ -160,7 +160,8 @@ void main() {
   const lookAt = (eye, at, up) => { const z = norm(sub(eye, at)), x = norm(cross(up, z)), y = cross(z, x); return new Float32Array([x[0], y[0], z[0], 0, x[1], y[1], z[1], 0, x[2], y[2], z[2], 0, -dot(x, eye), -dot(y, eye), -dot(z, eye), 1]); };
   const rotOnly = m => { const o = m.slice(); o[12] = o[13] = o[14] = 0; return o; };
   const model = (pos, r, u, f) => new Float32Array([r[0], r[1], r[2], 0, u[0], u[1], u[2], 0, f[0], f[1], f[2], 0, pos[0], pos[1], pos[2], 1]);
-  const LW = norm([0.75, 0.45, 0.5]);
+  const LW0 = norm([0.75, 0.45, 0.5]);
+  let LW = LW0;   // the light of the scene being drawn (scene.light, else the default)
   // crew ships as in the game (ships-sdf.js, loaded before this file): the ship formula, drawn once its
   // shader has compiled (until then, and for anything without a crew card, the voxel ship)
   const kit = typeof ShipKit !== 'undefined' ? ShipKit.create(gl) : null;
@@ -194,7 +195,9 @@ void main() {
     gl.uniform1f(U2.uSmooth, L.smooth); gl.uniform1f(U2.uSoft, L.soft); gl.uniform1f(U2.uRound, L.round);
     gl.uniform1f(U2.uNoise, L.noise); gl.uniform1f(U2.uColBlend, L.colBlend); gl.uniform1f(U2.uSphere, L.sphere);
     gl.uniform1f(U2.uGloss, L.gloss ?? 1); gl.uniform1f(U2.uTex, L.tex || 0); gl.uniform1f(U2.uTexScale, L.texScale || 1); gl.uniform1f(U2.uSlope, L.slope || 0);
-    gl.uniform1f(U2.uStep, D.step); gl.uniform1f(U2.uAO, D.ao); gl.uniform1f(U2.uT, t);
+    // the ship shader pulses energy blocks fast (right for ship parts); on a planet that reads as flicker,
+    // so planets run its clock slower: energy pulses and water ripples at the pace of the game's planet shader
+    gl.uniform1f(U2.uStep, D.step); gl.uniform1f(U2.uAO, D.ao); gl.uniform1f(U2.uT, t * 0.065);
     gl.uniform1i(U2.uDens, 3); gl.uniform1i(U2.uCol, 4); gl.uniform1i(U2.uSoftD, 5); gl.uniform1f(U2.uBound, 0);
     gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_3D, md.soft);
     gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_3D, md.col);
@@ -300,6 +303,7 @@ void main() {
       if (!v.visible) continue;
       v.t += dt;
       const sc = v.scene(v.t);
+      LW = sc.light ? norm(sc.light) : LW0;
       // build at most one new planet per frame so the page never stalls
       const need = (sc.planets || []).filter(p => !planetCache.has(JSON.stringify([p.name, p.R || 26, p.cut, p.pit])));
       if (need.length && builds++) continue;
@@ -318,7 +322,7 @@ void main() {
         if (p0 && sc.halo) {   // atmosphere glow around the first planet
           const c = mul(VP, new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, ...p0.pos, 1])), cw = [c[12], c[13], c[15]];
           const dist = Math.hypot(...sub(sc.eye, p0.pos)), rad = p0.size / Math.sqrt(Math.max(1e-4, dist * dist - p0.size * p0.size)) / Math.tan(fov / 2) * h / 2;
-          halo = { c: [(cw[0] / cw[2] * 0.5 + 0.5) * w, (cw[1] / cw[2] * 0.5 + 0.5) * h], rad, atm: 1, tint: sc.halo, sun: [0.8, 0.6] };
+          halo = { c: [(cw[0] / cw[2] * 0.5 + 0.5) * w, (cw[1] / cw[2] * 0.5 + 0.5) * h], rad, atm: sc.haloAtm ?? 1, tint: sc.halo, sun: sc.haloSun || [0.8, 0.6] };
         }
         sky.draw(mul(P, rotOnly(V)), 2 * Math.tan(fov / 2) / h, v.t, halo);
       }

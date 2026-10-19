@@ -7,23 +7,48 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Michroma&family=Barlow+Condensed:wght@600;800&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
-<link rel="icon" href="favicon.svg?v=20261020b" type="image/svg+xml">
-<link rel="icon" href="favicon-32.png?v=20261020b" type="image/png" sizes="32x32">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=20261020b">
-<link rel="stylesheet" href="ui.css?v=20261020b">
+<link rel="icon" href="favicon.svg?v=20261020c" type="image/svg+xml">
+<link rel="icon" href="favicon-32.png?v=20261020c" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=20261020c">
+<link rel="stylesheet" href="ui.css?v=20261020c">
 <style>
   * { box-sizing: border-box; }
   html, body { margin: 0; background: #000; color: var(--ink); font: 15px/1.55 Barlow, system-ui, sans-serif; }
   a { text-decoration: none; color: inherit; cursor: pointer; }
   /* the visible screen: svh leaves out the phone browser's address and tab bars, so the button is never behind them */
-  .hero { position: relative; height: 100vh; height: 100svh; min-height: min(620px, 100svh); max-height: 1000px; }
+  .hero { position: relative; height: 100vh; height: 100svh; min-height: min(620px, 100svh); overflow: hidden; }
   .hero canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-  .hero::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, #000c 0%, #0006 34%, #0000 58%), linear-gradient(#0000 78%, #000 100%); pointer-events: none; }
-  .copy { position: absolute; z-index: 2; left: 64px; bottom: 12vh; max-width: 560px; }
-  .ep { font: 600 13px 'Barlow Condensed'; letter-spacing: 0.4em; color: var(--a); text-transform: uppercase; }
-  h1 { font: 400 clamp(40px, 5.6vw, 84px)/1.04 Michroma; letter-spacing: 0.02em; margin: 14px 0 16px; text-shadow: 0 4px 30px #000; }
-  .copy .btn { margin-top: 30px; }
-  .copy p { color: #cfc6b6; font-size: 19px; font-weight: 300; margin: 0; text-shadow: 0 2px 12px #000; max-width: 460px; }
+  .shade, .vig, .fade { position: absolute; inset: 0; pointer-events: none; }
+  .shade { background: linear-gradient(90deg, #000c 0%, #0006 34%, #0000 58%); }
+  .vig { background: radial-gradient(ellipse 120% 90% at 50% 50%, #0000 55%, #000b 100%); }
+  .fade { background: #000; animation: fadeout 2.2s ease 0.1s both; }
+  @keyframes fadeout { from { opacity: 1; } to { opacity: 0; } }
+  /* film grain: one small noise tile, nudged around */
+  .grain { position: absolute; inset: -60px; pointer-events: none; opacity: 0.07; mix-blend-mode: overlay;
+    background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.7 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+    animation: grain 0.5s steps(4) infinite; }
+  @keyframes grain { 0% { transform: translate(0, 0); } 25% { transform: translate(-23px, 17px); } 50% { transform: translate(19px, -29px); } 75% { transform: translate(-11px, -13px); } }
+  /* the copy arrives piece by piece (style="--d: seconds"); the title closes in from wide letter spacing */
+  [data-in] { animation: rin 1.2s cubic-bezier(.2, .7, .2, 1) calc(var(--d, 0) * 1s) both; }
+  @keyframes rin { from { opacity: 0; transform: translateY(18px); filter: blur(8px); } to { opacity: 1; transform: none; filter: none; } }
+  .top { position: absolute; z-index: 3; top: 0; right: 0; padding: 26px 40px; }
+  .watch { font: 600 13px 'Barlow Condensed'; letter-spacing: 0.3em; text-transform: uppercase; opacity: 0.8; display: inline-flex; align-items: center; gap: 10px; }
+  .watch::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: #ff3b2f; box-shadow: 0 0 10px #ff3b2f; animation: live 1.6s ease-in-out infinite; }
+  .watch:hover { opacity: 1; }
+  @keyframes live { 50% { opacity: 0.35; } }
+  .copy { position: absolute; z-index: 2; left: 7vw; top: 21vh; max-width: 640px; }
+  .ep { font: 600 13px 'Barlow Condensed'; letter-spacing: 0.42em; color: var(--a); text-transform: uppercase; }
+  h1 { font: 400 clamp(40px, 5.8vw, 96px)/1.04 Michroma; letter-spacing: 0.08em; text-transform: uppercase; margin: 18px 0;
+    background: linear-gradient(180deg, #fff 30%, #f1d9b8 72%, #ff9550 125%); -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 6px 40px #000); animation: title 3.2s cubic-bezier(.15, .7, .2, 1) 0.8s both; }
+  @keyframes title { from { opacity: 0; letter-spacing: 0.5em; filter: blur(14px); } to { opacity: 1; } }
+  .copy p { color: #d8cfbf; font-size: 19px; font-weight: 300; margin: 0 0 32px; text-shadow: 0 2px 14px #000; max-width: 470px; }
+  .row { display: flex; align-items: center; gap: 26px; flex-wrap: wrap; }
+  .link2 { font: 600 13px 'Barlow Condensed'; letter-spacing: 0.3em; text-transform: uppercase; border-bottom: 1px solid #ffffff40; padding-bottom: 3px; }
+  .link2:hover { border-color: var(--a); }
+  .copy .status { min-height: 1.5em; margin-top: 14px; }
+  .facts { position: absolute; z-index: 2; left: 7vw; bottom: 32px; display: flex; gap: 12px 40px; flex-wrap: wrap; font: 600 12px 'Barlow Condensed'; letter-spacing: 0.34em; text-transform: uppercase; color: #cfc6b6b0; }
+  .facts span::before { content: '◆'; margin-right: 12px; color: var(--a); font-size: 8px; vertical-align: 2px; }
   /* sign-up */
   dialog { width: min(440px, calc(100vw - 32px)); padding: 0; border: 1px solid #ffffff1f; border-radius: 4px; background: #0b0908f2; color: var(--ink); box-shadow: 0 30px 80px #000c; }
   dialog::backdrop { background: #000a; backdrop-filter: blur(3px); }
@@ -37,17 +62,34 @@
   .su .row { display: flex; align-items: center; gap: 18px; margin-top: 6px; }
   .su .link { margin-top: 30px; }
   @media (max-width: 860px) {
-    .copy { left: calc(20px + env(safe-area-inset-left, 0px)); right: calc(20px + env(safe-area-inset-right, 0px)); bottom: calc(40px + env(safe-area-inset-bottom, 0px)); }
+    .top { padding: 18px 20px; }
+    .copy { left: calc(20px + env(safe-area-inset-left, 0px)); right: calc(20px + env(safe-area-inset-right, 0px)); top: auto; bottom: calc(110px + env(safe-area-inset-bottom, 0px)); }
+    .facts { left: 20px; right: 20px; gap: 8px 22px; bottom: calc(22px + env(safe-area-inset-bottom, 0px)); }
+    .shade { background: linear-gradient(#0000 35%, #000e 85%); }
   }
-  @media (max-height: 640px) {   /* short screens: tighter copy so the button stays well clear of the bottom */
-    .copy { bottom: calc(24px + env(safe-area-inset-bottom, 0px)); }
-    .copy .btn { margin-top: 18px; }
+  @media (max-height: 640px) {   /* short screens: the copy higher and tighter, the facts out of its way */
+    .copy { top: 12vh; }
+    .copy p { margin-bottom: 20px; }
+    .facts { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .grain { animation: none; }
+    [data-in], h1, .fade { animation-duration: 0.01s; animation-delay: 0s; }
   }
 </style>
 </head>
 <body>
-  <div class="hero"><canvas id="hero"></canvas>
-    <div class="copy"><div class="ep">Now playing</div><h1>The Hash Rush</h1><p>Take the world apart to find the golden hash before anyone else does.</p><button class="btn" id="join" type="button">Join the rush</button><div class="status" id="status" role="status" aria-live="polite"></div></div>
+  <div class="hero"><canvas id="hero"></canvas><div class="shade"></div><div class="vig"></div><div class="grain" aria-hidden="true"></div>
+    <div class="top"><a class="watch" href="play.html" data-in style="--d:3">Watch live</a></div>
+    <div class="copy">
+      <div class="ep" data-in style="--d:0.4">Sixteen worlds · one golden hash each</div>
+      <h1>The Hash<br>Rush</h1>
+      <p data-in style="--d:2.4">Take the world apart to find the golden hash before anyone else does.</p>
+      <div class="row" data-in style="--d:2.9"><button class="btn" id="join" type="button">Join the rush</button><a class="link2" href="play.html">Watch live</a></div>
+      <div class="status" id="status" role="status" aria-live="polite"></div>
+    </div>
+    <div class="facts" data-in style="--d:3.4"><span>Live on WAX</span><span>Your crew flies its own ship</span><span>Free to watch</span></div>
+    <div class="fade"></div>
   </div>
 
   <dialog id="signup" aria-labelledby="suTitle">
@@ -63,57 +105,25 @@
     </form>
   </dialog>
 
-<script src="planets-data.js?v=20261020b"></script>
-<script src="space.js?v=20261020b"></script>
-<script src="weapons-lib.js?v=20261020b"></script>
-<script src="aw-data.js?v=20261020b"></script>
-<script src="aw-designs.js?v=20261020b"></script>
-<script src="shots.js?v=20261020b"></script>
-<script src="sdf.js?v=20261020b"></script>
-<script src="ships-sdf.js?v=20261020b"></script>
-<script src="hero-gl.js?v=20261020b"></script>
-<script src="ranks.js?v=20261020b"></script>
+<script src="planets-data.js?v=20261020c"></script>
+<script src="space.js?v=20261020c"></script>
+<script src="weapons-lib.js?v=20261020c"></script>
+<script src="aw-data.js?v=20261020c"></script>
+<script src="aw-designs.js?v=20261020c"></script>
+<script src="shots.js?v=20261020c"></script>
+<script src="sdf.js?v=20261020c"></script>
+<script src="ships-sdf.js?v=20261020c"></script>
+<script src="hero-gl.js?v=20261020c"></script>
+<script src="ranks.js?v=20261020c"></script>
+<script src="landing.js?v=20261020c"></script>
 <script>
 'use strict';
-const H = HeroGL;
-// Magor, the half-destroyed lava planet from the original Hash Rush, with a lava mine
-// (turned so Magor's sandy anomaly faces away from the camera; the mine direction is turned with it)
-const P = { name: 'Magor', pos: [1.15, -0.05, -2.0], size: 1.05, R: 40, pit: { dir: [-0.549, -0.293, -0.783], r: 12, depth: 14 } };
-// the fleet: [crew, rarity, element, shine, size, orbit radius, height]
-const fleet = [['Khaured Commander', 'Legendary', 'Fire', 'Stone', 0.27, 1.75, 0.05], ['Alien Bat (Horrors)', 'Epic', 'Nature', 'XDimension', 0.2, 1.5, 0.45],
-  ['Robot Supersoldier', 'Rare', 'Metal', 'XDimension', 0.18, 1.6, -0.4], ['Wise Ancient One', 'Rare', 'Air', 'Stone', 0.17, 1.45, -0.1],
-  ['Nordic Warrior', 'Common', 'Fire', 'Stardust', 0.15, 1.55, 0.3], ['LG Soldier', 'Common', 'Neutral', 'Stone', 0.15, 1.4, -0.5]];
-// real weapons from the game; a ship only fires when it has a clear line to the mine
-// each burst hits a different spot, one the firing ship and the viewer can both see; a burst is
-// a quick run of single shots, as in the game
-const arm = H.armory({ planet: P, every: 1.1, turn: 1.25, burst: { shots: 10, gap: 0.14 }, spread: 0.02, nearScale: 0.35, scatter: 1.05, viewDir: [-0.6 - 1.15, 0.3 + 0.05, 2.4 + 2.0],
-  list: [['Infernal Axe', 'Gold'], ['Magori Revolver', 'Stone'], ['Storm Edge Sword', 'Stardust'], ['Randomizer Bow', 'Gold'], ['Galatic Fireblade', 'Stone']] });
-// each ship's heading eases towards where it wants to point: along its orbit, or at its target
-const heading = [];
-let lastT = null;
-const unitV = v => { const l = Math.hypot(...v) || 1; return v.map(x => x / l); };
-H.view(document.getElementById('hero'), t => { P.yaw = 2.068 + 0.15 * Math.sin(t * 0.12);
-  const dt = lastT == null ? 0 : Math.min(0.1, Math.max(0, t - lastT)); lastT = t;
-  const ease = 1 - Math.exp(-dt * 3.8);   // a gentle turn: about a second to come round
-  return { eye: [-0.6, 0.3, 2.4], at: [0.45, -0.05, -0.9], fov: 0.66, halo: [1, 0.6, 0.35], planets: [P], fx: [arm],
-    ships: fleet.map(([name, rarity, element, shine, size, r, y], i) => { const a = t * (0.16 + i * 0.012) + i * 0.79;
-      const pos = [P.pos[0] + Math.cos(a) * r, P.pos[1] + y, P.pos[2] + Math.sin(a) * r];
-      // fly along the orbit, nose turned in toward the planet
-      let want = unitV([-Math.sin(a) * 0.75 - Math.cos(a) * 0.6, -y * 0.3, Math.cos(a) * 0.75 - Math.sin(a) * 0.6]);
-      // the ship about to fire, or firing, turns to face its target
-      const f = arm.focus;
-      if (f && f.ship === i && t < f.until) want = unitV(f.p.map((v, k) => v - pos[k]));
-      const h = heading[i] || want;
-      heading[i] = unitV(h.map((v, k) => v + (want[k] - v) * ease));
-      return { name, rarity, element, shine, pos, fwd: heading[i], size }; }) }; },
-  (ctx, o) => {
-    H.plumes(ctx, o, 'rgba(255,150,80,A)', 0.9);
-  });
+HashRushDawn(document.getElementById('hero'));
 </script>
 <script type="module">
 // Join the rush: connect a wallet (Anchor or WAX Cloud Wallet); new players pick a playertag
 // and sign up on planetmining, then everyone goes straight to the current planet
-import * as chain from './chain.js?v=20261020b';
+import * as chain from './chain.js?v=20261020c';
 const $ = id => document.getElementById(id);
 const join = $('join'), status = $('status'), dlg = $('signup'), tag = $('tag'), go = $('suGo'), suStatus = $('suStatus');
 const say = (el, text, err = false) => { el.textContent = text; el.classList.toggle('err', err); };
