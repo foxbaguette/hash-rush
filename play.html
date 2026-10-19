@@ -7,10 +7,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Michroma&family=Barlow+Condensed:wght@500;600;800&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link rel="icon" href="favicon.svg?v=20261019i" type="image/svg+xml">
-<link rel="icon" href="favicon-32.png?v=20261019i" type="image/png" sizes="32x32">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=20261019i">
-<link rel="stylesheet" href="ui.css?v=20261019i">
+<link rel="icon" href="favicon.svg?v=20261019k" type="image/svg+xml">
+<link rel="icon" href="favicon-32.png?v=20261019k" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=20261019k">
+<link rel="stylesheet" href="ui.css?v=20261019k">
 <style>
   html, body { margin: 0; height: 100%; background: #000; color: var(--ink); overflow: hidden; font: 15px/1.5 var(--text); }
   canvas#c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; opacity: 0; transition: opacity 1s; }
@@ -120,7 +120,7 @@
   .dtile.empty .t { top: 50%; bottom: auto; transform: translateY(-50%); text-align: center; }
   .dtile.empty .t span { color: var(--mute); } .dtile.empty .t b { color: var(--a-hi); font: 600 12px var(--label); letter-spacing: 0.15em; text-transform: uppercase; margin-top: 4px; }
   /* damage and trigger to the left of the cards, straight on the scene (no panel behind) */
-  .plate { order: 1; display: flex; align-items: center; gap: 20px; }
+  .plate { order: 1; position: relative; display: flex; align-items: center; gap: 20px; }
   .plate .n { text-align: right; text-shadow: 0 2px 14px #000, 0 0 2px #000; }
   .plate .n small { color: #b8b0a2; }
   .plate .n b { display: block; font: 400 38px/1 var(--display); color: var(--a-hi); }
@@ -147,7 +147,7 @@
   @media (prefers-reduced-motion: reduce) { .fire .burst, .fire .burst::after, .fire.flash .btn, .btn.attack .cd { animation: none !important; } }
   .loadout .status { margin: 0; max-width: 380px; font-size: 14px; }
   /* auto attack: sits just above the trigger, only when attacks sign by themselves */
-  .fire .autofire { position: absolute; right: 0; bottom: calc(100% + 8px); text-shadow: 0 1px 8px #000; }
+  .plate .autofire { position: absolute; right: 0; bottom: calc(100% + 8px); white-space: nowrap; text-shadow: 0 1px 8px #000; }
   .loadout small { display: block; font: 600 11px var(--label); letter-spacing: 0.3em; text-transform: uppercase; color: var(--mute); }
   .loadout b { font-weight: 500; }
 
@@ -455,8 +455,8 @@
     </div>
     <div class="plate">
       <div class="n"><small>Damage</small><b id="loDmg">–</b></div>
-      <div class="fire" id="fireWrap"><span class="burst" aria-hidden="true"></span><button class="btn attack" id="attackBtn" type="button"><span class="cd" id="cdFill"></span><span class="lbl" id="attackLbl">Attack</span></button>
-        <label class="switch autofire" id="autoFireRow" hidden><input type="checkbox" id="autoFire">Auto attack</label></div>
+      <div class="fire" id="fireWrap"><span class="burst" aria-hidden="true"></span><button class="btn attack" id="attackBtn" type="button"><span class="cd" id="cdFill"></span><span class="lbl" id="attackLbl">Attack</span></button></div>
+      <label class="switch autofire" id="autoFireRow" hidden><input type="checkbox" id="autoFire">Auto attack</label>
     </div>
   </div>
   <div class="status" id="attackStatus" role="status" aria-live="polite"></div>
@@ -527,13 +527,13 @@
   </div>
 </dialog>
 
-<script src="planets-data.js?v=20261019i"></script>
-<script src="space.js?v=20261019i"></script>
-<script src="weapons-lib.js?v=20261019i"></script>
-<script src="aw-data.js?v=20261019i"></script>
-<script src="aw-designs.js?v=20261019i"></script>
-<script src="sdf.js?v=20261019i"></script>
-<script src="hero-gl.js?v=20261019i"></script>
+<script src="planets-data.js?v=20261019k"></script>
+<script src="space.js?v=20261019k"></script>
+<script src="weapons-lib.js?v=20261019k"></script>
+<script src="aw-data.js?v=20261019k"></script>
+<script src="aw-designs.js?v=20261019k"></script>
+<script src="sdf.js?v=20261019k"></script>
+<script src="hero-gl.js?v=20261019k"></script>
 <script>
 'use strict';
 /*
@@ -574,6 +574,18 @@
 */
 const canvas = document.getElementById('c');
 const gl = canvas.getContext('webgl2', { antialias: false, alpha: false, powerPreference: 'high-performance', preserveDrawingBuffer: false });
+// Phones drop the GPU memory of a background tab (the WebGL context is lost): coming back, the page
+// would show its interface over an empty canvas. A fresh start is the reliable recovery (the wallet
+// session and settings are kept); never more than once in 15 s, so it cannot loop.
+(() => {
+  const restart = () => {
+    try { if (Date.now() - Number(sessionStorage.getItem('hashrush.glRestart') || 0) < 15000) return; sessionStorage.setItem('hashrush.glRestart', String(Date.now())); } catch { /* reload anyway */ }
+    location.reload();
+  };
+  canvas.addEventListener('webglcontextlost', e => e.preventDefault());   // ask the browser to give it back
+  canvas.addEventListener('webglcontextrestored', restart);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && gl.isContextLost()) setTimeout(() => { if (gl.isContextLost()) restart(); }, 1200); });
+})();
 if (!gl) {
   document.body.innerHTML = '<div class="err">WebGL2 is not available in this browser.</div>';
   throw new Error('no webgl2');
@@ -2394,6 +2406,6 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 </script>
-<script type="module" src="play.js?v=20261019i"></script>
+<script type="module" src="play.js?v=20261019k"></script>
 </body>
 </html>

@@ -14,6 +14,18 @@ const HeroGL = (() => {
   const glc = document.createElement('canvas');
   const gl = glc.getContext('webgl2', { antialias: true, alpha: false, preserveDrawingBuffer: false });
   if (!gl) return { view() {}, ok: false };
+  // Phones drop the GPU memory of a background tab (the WebGL context is lost): coming back, the page
+  // would show its interface over an empty canvas. A fresh start is the reliable recovery (the wallet
+  // session and settings are kept); never more than once in 15 s, so it cannot loop.
+  (() => {
+    const restart = () => {
+      try { if (Date.now() - Number(sessionStorage.getItem('hashrush.glRestart') || 0) < 15000) return; sessionStorage.setItem('hashrush.glRestart', String(Date.now())); } catch { /* reload anyway */ }
+      location.reload();
+    };
+    glc.addEventListener('webglcontextlost', e => e.preventDefault());   // ask the browser to give it back
+    glc.addEventListener('webglcontextrestored', restart);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden && gl.isContextLost()) setTimeout(() => { if (gl.isContextLost()) restart(); }, 1200); });
+  })();
 
   const VS = `#version 300 es
 precision highp float;

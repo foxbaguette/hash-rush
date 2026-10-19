@@ -1,7 +1,7 @@
 // The Hash Rush, live screen: the planet being mined on planetmining, every crew that attacked in
 // the last 30 minutes in orbit, the attack log replayed as it comes in, and the hangar where a
 // player changes their playertag and equips crew and weapon.
-import * as chain from './chain.js?v=20261019i';
+import * as chain from './chain.js?v=20261019k';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
@@ -420,8 +420,12 @@ $('attackBtn').addEventListener('click', async () => {
     // your hit is in the log now: read it right away and play it
     for (let i = 0; i < 4; i++) { await new Promise(r => setTimeout(r, 700)); await pollNow(); }
   } catch (err) {
-    say($('attackStatus'), chain.friendlyError(err), true);
-    if (S.autoFire) S.autoPause = Date.now() + 20000;   // auto attack waits a little before trying again
+    const wait = /wait (\d+) more second/i.exec(String(err?.message ?? err));
+    if (wait && S.player) { chainCooldown(Number(wait[1])); say($('attackStatus'), ''); }   // not an error: still recharging on the chain
+    else {
+      say($('attackStatus'), chain.friendlyError(err), true);
+      if (S.autoFire) S.autoPause = Date.now() + 20000;   // auto attack waits a little before trying again
+    }
   } finally { S.firing = false; updateAttack(); }
 });
 
@@ -429,7 +433,14 @@ $('attackBtn').addEventListener('click', async () => {
 // the end of the recharge: from the chain's time of your last attack, or, right after you fired, from
 // this clock plus a second (the block that holds the attack is a little later than the click)
 const cooldownLeft = () => !S.player || !S.cooldown ? 0 :
-  Math.max(0, Math.max(chain.chainTime(S.player.last_action) + S.cooldown, (S.cdEnd || 0) / 1000) - Date.now() / 1000);
+  Math.max(0, Math.max(chain.chainTime(S.player.last_action) + S.cooldown + (S.skew || 0), (S.cdEnd || 0) / 1000) - Date.now() / 1000);
+// the chain said "wait N more seconds": its clock and this one disagree. Recharge for exactly that
+// long, and remember the difference (S.skew, seconds) so later recharges end when the chain's do
+function chainCooldown(seconds) {
+  const end = Date.now() / 1000 + seconds + 0.5, chainEnd = chain.chainTime(S.player.last_action) + S.cooldown;
+  S.skew = Math.min(60, Math.max(S.skew || 0, end - chainEnd));
+  S.cdEnd = end * 1000;
+}
 const mmss = s => { s = Math.ceil(s); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
 let wasCooling = null;
 function updateAttack() {
@@ -439,6 +450,7 @@ function updateAttack() {
     $('attackLbl').textContent = 'Recharging ' + mmss(left);
   } else $('attackLbl').textContent = S.firing ? 'Firing…' : S.attackReady ? 'Attack' : 'Equip to attack';
   btn.disabled = S.spectating || cooling || S.firing;
+  if (wasCooling && !cooling && $('attackStatus').classList.contains('err')) say($('attackStatus'), '');   // an old error goes once it is ready again
   if (wasCooling && !cooling) {   // charged again
     wrap.classList.remove('flash'); void wrap.offsetWidth; wrap.classList.add('flash');
     setTimeout(() => wrap.classList.remove('flash'), 1800);
