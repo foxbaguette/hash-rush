@@ -409,7 +409,7 @@ void main() {
         if (!(arm.left > 0)) { arm.left = cfg.burst.shots; arm.bWho = who; arm.bAim = aim; }
         if (--arm.left > 0) { arm.next = t + (cfg.burst.gap ?? 0.14); return; }
       }
-      if (arm.focus) arm.focus.until = t + 0.35;   // hold the aim a moment, then back to the orbit
+      if (arm.focus) arm.focus.until = t + 0.7;   // hold the aim a moment, then back to the orbit
       arm.k++; arm.next = t + (cfg.every ?? 1.8);
     };
     return arm;
