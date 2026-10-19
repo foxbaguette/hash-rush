@@ -33,13 +33,27 @@ uniform vec3 uCamM, uLight;            // model space
 uniform vec3 uBoxMin, uBoxMax;
 uniform vec3 uOrigin, uDims;           // grid: g = (p - uOrigin) / uCell, cells 0 .. uDims
 uniform float uCell, uBound;
+uniform vec3 uBoundC;                  // centre of the bounding sphere (model space)
 uniform sampler3D uDens, uSoftD, uCol;   // solidness per cell, the same blurred (melt), colour
 uniform float uSmooth, uSoft, uRound, uNoise, uColBlend, uSphere, uStep, uAO, uT;
 uniform float uGloss;                    // highlights and sheen: 1 as the blocks have them, 0 fully matte
 uniform float uTex, uTexScale, uSlope;   // planet ground texture: strength, scale, bare rock on steep ground
 ${planet ? `uniform usampler3D uMask;
 uniform sampler3D uHeatT, uHeatC;
-uniform float uSlotT[${SLOTS}], uMelt;` : ''}
+uniform float uSlotT[${SLOTS}], uMelt;
+// the hash found: break-up time (slow motion applied; <0 none), when the chunks burst, the radius in
+// blocks, the hash block and the 13 chunk seeds (grid units), and which chunk this draw is (-1: all)
+uniform float uB, uPop, uRad;
+uniform vec3 uHashG;
+uniform vec4 uSeeds[13];
+uniform int uChunk;
+// one chunk: outside the planes halfway to every other seed (its cell of the crack pattern)
+float chunkCut(vec3 g) {
+  vec3 sk = uSeeds[uChunk].xyz;
+  float d = -1e9;
+  for (int j = 0; j < 13; j++) { if (j == uChunk) continue; vec3 sj = uSeeds[j].xyz; d = max(d, dot(g - (sk + sj) * 0.5, normalize(sj - sk))); }
+  return d * 0.6;
+}` : ''}
 in vec3 vP;
 layout(location = 0) out vec4 o;
 layout(location = 1) out vec4 oGlow;
@@ -66,6 +80,7 @@ float fBox(vec3 g) {
 float field(vec3 g) {
   float f = uSmooth >= 0.999 ? fSmooth(g) : uSmooth <= 0.001 ? fBox(g) : mix(fBox(g), fSmooth(g), uSmooth);
   if (uNoise > 0.0) f += (vnoise(g * 1.3) - 0.5) * uNoise * 2.0;
+${planet ? '  if (uChunk >= 0) f = max(f, chunkCut(g));' : ''}
   return f;
 }
 float is(float m, float k) { return 1.0 - min(abs(m - k), 1.0); }
@@ -80,7 +95,8 @@ void main() {
   vec3 inv = 1.0 / rd, t0 = (uBoxMin - ro) * inv, t1 = (uBoxMax - ro) * inv, tmin = min(t0, t1), tmax = max(t0, t1);
   float tn = max(max(max(tmin.x, tmin.y), tmin.z), 0.0), tf = min(min(tmax.x, tmax.y), tmax.z);
   if (uBound > 0.0) {   // the planet: only inside its bounding sphere
-    float b = dot(ro, rd), c = dot(ro, ro) - uBound * uBound, disc = b * b - c;
+    vec3 oc = ro - uBoundC;
+    float b = dot(oc, rd), c = dot(oc, oc) - uBound * uBound, disc = b * b - c;
     if (disc < 0.0) discard;
     float sq = sqrt(disc);
     tn = max(tn, -b - sq); tf = min(tf, -b + sq);
@@ -146,7 +162,16 @@ ${planet ? `
   float churn = sin(dot(gm, vec3(5.3, 4.1, 6.7)) * 2.5 + uT * 0.7) * sin(dot(gm, vec3(-3.7, 6.1, 2.3)) * 2.0 - uT * 0.5);
   float kk = 1.0 + lava * (0.18 * sin(uT * 2.3 + rnd * 6.28) + 0.35 * churn) + energy * 0.15 * sin(uT * 1.5 + rnd * 6.28);
   vec3 hot = mix(base, vec3(1.0, 0.85, 0.5), lava * max(churn, 0.0) * 0.5);
-  vec3 em = hot * glow * 1.4 * kk + texelFetch(uHeatC, ic, 0).rgb * 1.7 * heat + vec3(1.2, 1.0, 0.85) * pow(heat, 4.0) * 1.4;` : `
+  vec3 em = hot * glow * 1.4 * kk + texelFetch(uHeatC, ic, 0).rgb * 1.7 * heat + vec3(1.2, 1.0, 0.85) * pow(heat, 4.0) * 1.4;
+  if (uB >= 0.0) {   // the hash found: cracks glow out from the hash; after the burst the cut faces cool down
+    float d1 = 1e9, d2 = 1e9;
+    for (int j = 0; j < 13; j++) { float dd = length(g - uSeeds[j].xyz); if (dd < d1) { d2 = d1; d1 = dd; } else if (dd < d2) d2 = dd; }
+    float kR = uRad / 11.0, front = uB * 34.0 * kR, mm = max(0.0, uB - uPop), dh = length(g - uHashG);
+    float crack = 1.0 - smoothstep(0.0, 1.4, d2 - d1);
+    // before the burst the cracks blaze; after it the broken faces are hot only at first and cool fast
+    em += vec3(1.0, 0.45, 0.08) * smoothstep(front, front - 5.0, dh) * (crack * (mm > 0.0 ? 0.8 : 2.8) + 0.3) * exp(-mm * 2.2);
+    if (dh < 1.2 && uB < uPop) em += vec3(1.0, 0.8, 0.3) * 2.4;   // the hash block, until the burst
+  }` : `
   vec3 em = base * glow * 1.5 * (1.0 + energy * 0.25 * sin(uT * 23.0 + rnd * 6.28));`}
 
   // light, as the blocks are lit, with ambient occlusion from the solidness around

@@ -64,6 +64,7 @@ function loadPlanet(tr) {
   const total = chain.chainBlocks(Number(tr.radius)), destroyed = Math.min(total, Number(tr.destroyed_blocks));
   if (!planet.load(tr.planet, Number(tr.radius), Number(tr.seed), 1 - destroyed / total)) { $('busy').textContent = 'Unknown planet: ' + tr.planet; return; }
   S.shown = { index: Number(tr.index), total, destroyed };
+  S.track = tr;
   S.carry = 0;
   $('busy').hidden = true;
   document.body.classList.add('ready');
@@ -129,6 +130,15 @@ function showBand(log) {
   };
   tick();
 }
+// a test run of the whole sequence on this screen only (nothing goes to the chain): you find the
+// hash with a small hit, and the planet you were on comes back as the "next" one, as the chain has it
+$('simHash').addEventListener('click', () => {
+  closeMeMenu();
+  if (S.seq || !S.track) return;
+  const tag = S.player ? S.player.playertag : (S.account || 'Test');
+  playHit({ index: Number.MAX_SAFE_INTEGER, wallet: S.account || '', playertag: tag, damage_done: Math.max(1, Math.round(S.shown.total * 0.002)), hash_found: 1, simulated: true });
+  setTimeout(() => { if (S.seq && !S.nextTrack) S.nextTrack = { ...S.track }; }, 6000);
+});
 function arrive() {
   const tr = S.nextTrack;
   S.nextTrack = null;

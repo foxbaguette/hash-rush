@@ -128,11 +128,11 @@
 
   /* hash found */
   /* a steep band across the screen: the golden cube, who found it, ten bars counting down to the next planet */
-  .hashband { position: fixed; inset: 0; z-index: 8; display: grid; place-items: center; pointer-events: none; overflow: hidden; }
-  .hashband .band { display: flex; align-items: center; justify-content: center; gap: clamp(14px, 3vw, 40px); width: 130vw; padding: clamp(14px, 2.2vw, 32px) 0; color: #140700;
+  .hashband { position: fixed; inset: 0; z-index: 8; pointer-events: none; overflow: hidden; }
+  .hashband .band { position: absolute; left: -30vw; right: -30vw; top: 50%; display: flex; align-items: center; justify-content: center; gap: clamp(14px, 3vw, 40px); padding: clamp(14px, 2.2vw, 32px) 0; color: #140700;
     background: repeating-linear-gradient(0deg, #ffffff0f 0 1px, #0000 1px 3px), linear-gradient(180deg, var(--a-hi), var(--a) 46%, var(--a-lo));
-    box-shadow: 0 20px 60px #000a; transform: rotate(-8deg) scaleX(0); transition: transform 0.45s cubic-bezier(.2, .9, .2, 1); }
-  .hashband.on .band { transform: rotate(-8deg) scaleX(1); }
+    box-shadow: 0 20px 60px #000a; transform: translateY(-50%) rotate(-8deg) scaleX(0); transition: transform 0.45s cubic-bezier(.2, .9, .2, 1); }
+  .hashband.on .band { transform: translateY(-50%) rotate(-8deg) scaleX(1); }
   .hashband .lbl { font: 800 clamp(10px, 1.1vw, 14px) var(--label); letter-spacing: 0.4em; text-transform: uppercase; }
   .hashband .hb-name { font: 400 clamp(26px, 4.4vw, 64px)/1.05 var(--display); margin-top: 4px; }
   .hashband .bars { display: flex; gap: 6px; margin-top: 12px; }
@@ -409,6 +409,7 @@
         <div class="seg" role="group" aria-label="Look"><button type="button" data-look="vox">Voxels</button><button type="button" data-look="sdf">Distance field</button></div>
         <button class="link" id="lookTune" type="button" aria-expanded="false" aria-controls="lookPanel">Tune the look</button>
       </div>
+      <button class="link" id="simHash" type="button">Simulate hash found</button>
       <button class="link" id="signOut" type="button">Sign out</button>
     </div>
   </div>
@@ -1314,7 +1315,7 @@ function retire(s) {
 // the hash found: attacks stop, the hash block flares where the last shot landed, cracks run out,
 // a sharp burst, then slow motion while the chunks hang and turn; the next planet warps in.
 // All of it is one clock value in the planet shader; the CPU only sets up the chunks once.
-const BRK = { on: false, t0: 0, popped: false, hash: [0, 0, 0], pts: new Float32Array(13 * 4), ctr: new Float32Array(13 * 4), form: -1, shake: 0 };
+const BRK = { on: false, t0: 0, popped: false, hash: [0, 0, 0], pts: new Float32Array(13 * 4), ctr: new Float32Array(13 * 4), seedsG: new Float32Array(13 * 4), box: [], rad: [], form: -1, shake: 0 };
 const BRK_POP = 0.6;   // seconds from the flare to the burst
 let lastCell = -1, lastCamW = [0, 0, 5];
 const cellPos = c => [c % N + 0.5 - C, ((c / N) | 0) % N + 0.5 - C, ((c / NN) | 0) + 0.5 - C];
@@ -1328,7 +1329,7 @@ function breakUp() {
   let s = (seed ^ 0x9e3779b9) >>> 0;
   const rnd = () => (s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296;
   const pts = Array.from({ length: 13 }, () => { const z = rnd() * 2 - 1, a = rnd() * 6.283, r = Math.sqrt(1 - z * z), d = R * (0.45 + 0.4 * rnd()); return [Math.cos(a) * r * d, z * d, Math.sin(a) * r * d]; });
-  const sum = pts.map(() => [0, 0, 0, 0]);
+  const sum = pts.map(() => [0, 0, 0, 0]), lo = pts.map(() => [1e9, 1e9, 1e9]), hi = pts.map(() => [-1e9, -1e9, -1e9]);
   for (let c = 0; c < mask.length; c++) {
     const m = mask[c];
     if (m === EMPTY) continue;
@@ -1336,9 +1337,16 @@ function breakUp() {
     let best = 0, bd = 1e9;
     for (let i = 0; i < 13; i++) { const d = (p[0] - pts[i][0]) ** 2 + (p[1] - pts[i][1]) ** 2 + (p[2] - pts[i][2]) ** 2; if (d < bd) { bd = d; best = i; } }
     sum[best][0] += p[0]; sum[best][1] += p[1]; sum[best][2] += p[2]; sum[best][3]++;
+    for (let a = 0; a < 3; a++) { lo[best][a] = Math.min(lo[best][a], p[a]); hi[best][a] = Math.max(hi[best][a], p[a]); }
     if (m === BURIED) listAdd(c);   // the insides show once it breaks open
   }
-  pts.forEach((p, i) => { BRK.pts.set([p[0], p[1], p[2], 0], i * 4); const n = sum[i][3] || 1; BRK.ctr.set([sum[i][0] / n, sum[i][1] / n, sum[i][2] / n, i / 13], i * 4); });
+  pts.forEach((p, i) => {
+    BRK.pts.set([p[0], p[1], p[2], 0], i * 4); BRK.seedsG.set([p[0] + C, p[1] + C, p[2] + C, 0], i * 4);
+    const n = sum[i][3] || 1, cc = [sum[i][0] / n, sum[i][1] / n, sum[i][2] / n];
+    BRK.ctr.set([cc[0], cc[1], cc[2], i / 13], i * 4);
+    BRK.box[i] = sum[i][3] ? [lo[i].map(v => (v - 1.5) / C), hi[i].map(v => (v + 1.5) / C)] : null;
+    BRK.rad[i] = sum[i][3] ? Math.hypot(hi[i][0] - lo[i][0], hi[i][1] - lo[i][1], hi[i][2] - lo[i][2]) / 2 / C + 2 / C : 0;
+  });
   BRK.on = true; BRK.t0 = clock; BRK.popped = false; BRK.form = -1; BRK.shake = 0;
   const e = world.api(null), hw = toWorld(scale(BRK.hash, 1 / C));
   e.flash(hw, 0.35, [1, 0.85, 0.45], 0.9);
@@ -1349,6 +1357,10 @@ function breakBurst() {
   const e = world.api(null), hw = toWorld(scale(BRK.hash, 1 / C)), n = norm(hw);
   e.flash(hw, 0.9, [1, 0.95, 0.8], 0.45);
   e.burst(hw, 140, 1.6, 0.9, 0.022, [[1, 0.85, 0.5], [1, 0.55, 0.15], [1, 0.35, 0.06]], n, 1.2);
+  if (looks.on) for (let i = 0; i < 13; i++) {   // the distance-field look: burning embers from every crack instead of debris blocks
+    const cc = [BRK.ctr[i * 4], BRK.ctr[i * 4 + 1], BRK.ctr[i * 4 + 2]], w = toWorld(scale(cc, 1 / C));
+    e.burst(w, 22, 0.9, 1.6, 0.026, [[1, 0.8, 0.45], [1, 0.45, 0.1], [1, 0.3, 0.05]], norm(w), 0.9);
+  }
   BRK.shake = 1;
 }
 function fireBatch(count, col = [1, 0.42, 0.1]) {
@@ -1703,7 +1715,7 @@ const planet = {
   load(name, radius, newSeed, shareLeft) {
     const i = PLANETS.findIndex(p => p.name.toLowerCase() === String(name).toLowerCase());
     if (i < 0) return false;
-    if (BRK.on) { BRK.on = false; BRK.form = clock; canvas.style.transform = ''; }   // after a break-up: the next planet warps in
+    if (BRK.on) { BRK.on = false; BRK.form = clock; canvas.style.transform = ''; world.api(null).flash([0, 0, 0], 1.1, [0.5, 0.85, 1], 0.6); }   // after a break-up: the next planet warps in
     pIdx = i; liveR = Math.max(4, radius | 0); showPlanetInfo();
     seed = newSeed >>> 0;
     build();
@@ -1959,7 +1971,9 @@ function sdfLookUniforms(pr, L) {
   gl.uniform1f(u.uGloss, L.gloss ?? 1); gl.uniform1f(u.uTex, L.tex || 0); gl.uniform1f(u.uTexScale, L.texScale || 1); gl.uniform1f(u.uSlope, L.slope || 0);
   gl.uniform1f(u.uStep, looks.step); gl.uniform1f(u.uAO, looks.ao); gl.uniform1f(u.uT, clock);
 }
-function drawPlanetSdf(VP, Spin, camW) {
+// the break-up time with the slow motion applied (as in the block shader)
+const brkB = boom => boom < BRK_POP + 0.35 ? boom : BRK_POP + 0.35 + (boom - BRK_POP - 0.35) * 0.25;
+function sdfPlanetBegin(boom) {
   if (!sdfDens) sdfPlanetBuild();
   sdfMelt();
   const pr = sdfKit.progs().planetProg, u = pr.u;
@@ -1971,14 +1985,53 @@ function drawPlanetSdf(VP, Spin, camW) {
   gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_3D, heatTex);
   gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_3D, maskTex);
   gl.uniform1i(u.uMask, 0); gl.uniform1i(u.uHeatT, 1); gl.uniform1i(u.uHeatC, 2); gl.uniform1i(u.uDens, 3); gl.uniform1i(u.uCol, 4); gl.uniform1i(u.uSoftD, 5);
-  gl.uniformMatrix4fv(u.uMVP, false, mul(VP, Spin));
-  gl.uniform3fv(u.uCamM, toObj(Spin, camW));
-  gl.uniform3fv(u.uLight, toObj(Spin, LW));
-  gl.uniform3f(u.uBoxMin, -1, -1, -1); gl.uniform3f(u.uBoxMax, 1, 1, 1);
   gl.uniform3f(u.uOrigin, -1, -1, -1); gl.uniform3f(u.uDims, N, N, N); gl.uniform1f(u.uCell, 2 / N);
-  gl.uniform1f(u.uBound, Math.min(Math.sqrt(3), (R * EXT + 1.5) / C));
+  gl.uniform1f(u.uB, BRK.on && boom >= 0 ? brkB(boom) : -1); gl.uniform1f(u.uPop, BRK_POP); gl.uniform1f(u.uRad, R);
+  gl.uniform3f(u.uHashG, BRK.hash[0] + C, BRK.hash[1] + C, BRK.hash[2] + C); gl.uniform4fv(u.uSeeds, BRK.seedsG);
   sdfLookUniforms(pr, looks.planet);
   gl.bindVertexArray(emptyVao);
+  return u;
+}
+// a column-major rotation about a unit axis
+const rotAxis = (ax, a) => { const c = Math.cos(a), s = Math.sin(a), t = 1 - c, [x, y, z] = ax;
+  return new Float32Array([t * x * x + c, t * x * y + s * z, t * x * z - s * y, 0, t * x * y - s * z, t * y * y + c, t * y * z + s * x, 0, t * x * z + s * y, t * y * z - s * x, t * z * z + c, 0, 0, 0, 0, 1]); };
+// after the burst: every chunk is its own distance field, cut along its cracks, moved and turned
+// as the block chunks are (the same numbers as in the block shader)
+function drawChunksSdf(VP, Spin, camW, boom) {
+  const u = sdfPlanetBegin(boom), b = brkB(boom), mm = Math.max(0, b - BRK_POP), kR = R / 11;
+  const sc = 1 - Math.min(1, Math.max(0, (b - 3.6) / 1.0)) ** 2 * (3 - 2 * Math.min(1, Math.max(0, (b - 3.6) / 1.0)));
+  if (sc <= 0.001) return;
+  const camP = toObj(Spin, camW), camD = norm(camP), lightP = toObj(Spin, LW);
+  for (let i = 0; i < 13; i++) {
+    if (!BRK.box[i]) continue;
+    const idc = i / 13, cc = [BRK.ctr[i * 4], BRK.ctr[i * 4 + 1], BRK.ctr[i * 4 + 2]];
+    const sp = 0.7 + ((idc * 8.03) % 1) * 0.7;
+    let off = scale(norm(cc), sp * 5.5 * kR * mm / (1 + mm * 0.45));
+    off = sub(off, scale(camD, Math.max(0, dot(off, camD)) * 0.65));   // little flies at the viewer
+    const ax = norm([Math.sin(idc * 12.9), Math.cos(idc * 7.3), Math.sin(idc * 3.1) + 0.3]), Rk = rotAxis(ax, mm * (1.5 + idc * 3));
+    const q = scale(cc, 1 / C), p = scale(add(cc, off), 1 / C);
+    const Sc = new Float32Array([sc, 0, 0, 0, 0, sc, 0, 0, 0, 0, sc, 0, 0, 0, 0, 1]);
+    const M = mul(Spin, mul(translate(p[0], p[1], p[2]), mul(Rk, mul(Sc, translate(-q[0], -q[1], -q[2])))));
+    gl.uniformMatrix4fv(u.uMVP, false, mul(VP, M));
+    gl.uniform3fv(u.uCamM, add(scale(toObj(Rk, sub(camP, p)), 1 / sc), q));
+    gl.uniform3fv(u.uLight, toObj(Rk, lightP));
+    gl.uniform3fv(u.uBoxMin, BRK.box[i][0]); gl.uniform3fv(u.uBoxMax, BRK.box[i][1]);
+    gl.uniform3fv(u.uBoundC, q); gl.uniform1f(u.uBound, BRK.rad[i]);
+    gl.uniform1i(u.uChunk, i);
+    gl.drawArrays(gl.TRIANGLES, 0, 36);
+  }
+}
+// warp: 0..1 while the next planet arrives (it grows from far behind), 1 otherwise
+function drawPlanetSdf(VP, Spin, camW, warp = 1, boom = -1) {
+  const u = sdfPlanetBegin(boom);
+  gl.uniform1i(u.uChunk, -1); gl.uniform3f(u.uBoundC, 0, 0, 0);
+  const we = 1 - Math.pow(1 - Math.min(1, warp), 4), ws = Math.max(0.001, we), wo = scale(norm(camW), -(1 - we) * 2.2);
+  const S1 = new Float32Array([ws, 0, 0, 0, 0, ws, 0, 0, 0, 0, ws, 0, 0, 0, 0, 1]);
+  gl.uniformMatrix4fv(u.uMVP, false, mul(VP, mul(translate(wo[0], wo[1], wo[2]), mul(Spin, S1))));
+  gl.uniform3fv(u.uCamM, scale(toObj(Spin, sub(camW, wo)), 1 / ws));
+  gl.uniform3fv(u.uLight, toObj(Spin, LW));
+  gl.uniform3f(u.uBoxMin, -1, -1, -1); gl.uniform3f(u.uBoxMax, 1, 1, 1);
+  gl.uniform1f(u.uBound, Math.min(Math.sqrt(3), (R * EXT + 1.5) / C));
   gl.drawArrays(gl.TRIANGLES, 0, 36);
 }
 function drawVoxSdf(model, r, up, f, s, p, VP, camW) {
@@ -2179,7 +2232,9 @@ function frame(now) {
   uploadList();
   flushUploads();
   let u;
-  if (looks.on && !BRK.on && !(BRK.form >= 0 && clock - BRK.form < 1)) drawPlanetSdf(VP, Spin, camW);   // breaking up and warping in: blocks
+  // the distance-field look holds until the burst (its flash covers the change to flying blocks)
+  if (looks.on && BRK.on && boom >= BRK_POP) drawChunksSdf(VP, Spin, camW, boom);
+  else if (looks.on) drawPlanetSdf(VP, Spin, camW, BRK.form >= 0 && clock - BRK.form < 1 ? (clock - BRK.form) / 0.9 : 1, boom);
   else {
   gl.useProgram(planetProg.p);
   gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_3D, heatCTex);
