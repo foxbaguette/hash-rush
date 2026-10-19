@@ -86,7 +86,7 @@ function dropShip(wallet) {
   if (s) { planet.fleet.remove(s.id); S.ships.delete(wallet); }
 }
 
-// ---------------------------------------------------------------- what happened: feed and banner
+// ---------------------------------------------------------------- what happened: the feed and the hash found
 // kill feed: newest row on top, at most six, the older ones (and anything after 9 s) fade
 function feed(html, opts = {}) {
   const el = document.createElement('div');
@@ -100,16 +100,51 @@ function feed(html, opts = {}) {
   setTimeout(() => el.classList.add('old'), 9000);
 }
 const ARMS_BY_NAME = Object.fromEntries(ARMS_CARDS.map(c => [c.name, c]));
-let bannerTimer = 0;
-function banner(tag, color) {
-  $('bannerName').innerHTML = '<span style="color:' + color + '">' + esc(tag) + '</span>';
-  $('bannerText').textContent = 'broke the hash block. A new world is on its way.';
-  $('banner').classList.add('on');
-  clearTimeout(bannerTimer);
-  bannerTimer = setTimeout(() => $('banner').classList.remove('on'), 7000);
+// The hash found: the attack that found it lands first, then the planet breaks up, a band names
+// the finder and counts down 10 seconds, and the next planet warps in. Hits logged on the next
+// planet meanwhile wait for it; late hits on the old one only show in the feed.
+const BAND_AFTER = 1.7, COUNTDOWN = 10;
+function hashFound(log) {
+  if (S.seq) return;
+  S.seq = { hashIndex: Number(log.index), held: [], done: false };
+  setTimeout(() => {
+    planet.breakUp();
+    setTimeout(() => showBand(log), BAND_AFTER * 1000);
+  }, 3200);
+}
+function showBand(log) {
+  $('hbTag').textContent = log.playertag;
+  $('hbWhere').textContent = 'Hash found · ' + planet.name;
+  const bars = [...$('hbBars').children], end = Date.now() + COUNTDOWN * 1000;
+  $('hashBand').hidden = false;
+  requestAnimationFrame(() => requestAnimationFrame(() => $('hashBand').classList.add('on')));
+  const tick = () => {
+    if (!S.seq) return;
+    const left = Math.max(0, end - Date.now()), n = Math.ceil(left / 1000);
+    bars.forEach((b, i) => b.classList.toggle('on', i < n));
+    $('hbNext').textContent = (S.nextTrack ? 'Next · ' + S.nextTrack.planet + ' in ' : 'Next planet in ') + n + ' s';
+    if (left > 0) { setTimeout(tick, 200); return; }
+    S.seq.done = true;
+    if (S.nextTrack) arrive(); else $('hbNext').textContent = 'Waiting for the next planet…';
+  };
+  tick();
+}
+function arrive() {
+  const tr = S.nextTrack;
+  S.nextTrack = null;
+  loadPlanet(tr);   // after a break-up it warps in
+  $('hashBand').classList.remove('on');
+  setTimeout(() => { $('hashBand').hidden = true; }, 500);
+  const held = S.seq ? S.seq.held : [];
+  S.seq = null;
+  held.forEach((l, i) => setTimeout(() => playHit(l), 1200 + i * 350));
 }
 function playHit(log) {
   if (!S.shown) return;
+  if (S.seq && !log.hash_found) {
+    if (Number(log.index) > S.seq.hashIndex) { S.seq.held.push(log); return; }   // a hit on the next planet: after it arrives
+    return feed('<span class="who" style="color:' + colorOfWallet(log.wallet) + '">' + esc(log.playertag) + '</span><span class="ar">▸</span><span class="num">' + fmt(Number(log.damage_done)) + '</span>', { color: colorOfWallet(log.wallet) });
+  }
   const dmg = Number(log.damage_done), ship = S.ships.get(log.wallet);
   // the same share of the game planet as of the contract's planet; leftovers carry over
   const exact = planet.total * dmg / S.shown.total + S.carry, n = Math.floor(exact);
@@ -122,7 +157,7 @@ function playHit(log) {
   feed('<span class="who" style="color:' + color + '">' + esc(log.playertag) + '</span><span class="ar">▸</span><span class="wchip rar-' + rarity + '">' + esc(weapon) + '</span><span class="ar">▸</span><span class="num">' + fmt(dmg) + '</span>', { color });
   if (log.hash_found) {
     feed('<b>' + esc(log.playertag) + '</b><span>found the hash</span><span>· new world incoming</span>', { hash: true });
-    banner(log.playertag, color);
+    hashFound(log);
   }
 }
 const knownPlayers = new Map();   // wallet -> latest player row we have seen
@@ -158,7 +193,13 @@ async function poll() {
     setTimeout(() => playHit(log), mine ? 200 : Math.random() * POLL_MS * 0.9);
   }
   if (Number(tr.index) !== S.shown.index) {
-    setTimeout(() => loadPlanet(tr), POLL_MS);   // the hash was found: the new world arrives after the replay
+    // the hash was found: the next planet arrives when the countdown ends (or right away if it already has)
+    S.nextTrack = tr;
+    if (S.seq && S.seq.done) arrive();
+    else if (!S.seq && !S.nextTimer) S.nextTimer = setTimeout(() => {   // no hash in the log we replayed (found before this page opened): just swap
+      S.nextTimer = null;
+      if (!S.seq && S.nextTrack) { const t = S.nextTrack; S.nextTrack = null; loadPlanet(t); }
+    }, POLL_MS * 1.5);
   } else {
     // after the replay, settle on the contract's own count
     setTimeout(() => { if (S.shown && S.shown.index === Number(tr.index)) { S.shown.destroyed = Math.max(S.shown.destroyed, Math.min(S.shown.total, Number(tr.destroyed_blocks))); updateHud(); } }, POLL_MS);

@@ -127,10 +127,27 @@
   .loadout b { font-weight: 500; }
 
   /* hash found */
-  .banner { position: fixed; left: 50%; top: 40%; transform: translate(-50%, -50%); text-align: center; pointer-events: none; opacity: 0; transition: opacity 0.6s; }
-  .banner.on { opacity: 1; }
-  .banner h2 { font: 400 clamp(34px, 5vw, 70px)/1.05 var(--display); margin: 10px 0; text-shadow: 0 0 40px var(--a), 0 4px 30px #000; }
-  .banner p { margin: 0; font-size: 18px; color: #e8dfcf; text-shadow: 0 2px 12px #000; }
+  /* a steep band across the screen: the golden cube, who found it, ten bars counting down to the next planet */
+  .hashband { position: fixed; inset: 0; z-index: 8; display: grid; place-items: center; pointer-events: none; overflow: hidden; }
+  .hashband .band { display: flex; align-items: center; justify-content: center; gap: clamp(14px, 3vw, 40px); width: 130vw; padding: clamp(14px, 2.2vw, 32px) 0; color: #140700;
+    background: repeating-linear-gradient(0deg, #ffffff0f 0 1px, #0000 1px 3px), linear-gradient(180deg, var(--a-hi), var(--a) 46%, var(--a-lo));
+    box-shadow: 0 20px 60px #000a; transform: rotate(-8deg) scaleX(0); transition: transform 0.45s cubic-bezier(.2, .9, .2, 1); }
+  .hashband.on .band { transform: rotate(-8deg) scaleX(1); }
+  .hashband .lbl { font: 800 clamp(10px, 1.1vw, 14px) var(--label); letter-spacing: 0.4em; text-transform: uppercase; }
+  .hashband .hb-name { font: 400 clamp(26px, 4.4vw, 64px)/1.05 var(--display); margin-top: 4px; }
+  .hashband .bars { display: flex; gap: 6px; margin-top: 12px; }
+  .hashband .bars i { width: clamp(14px, 1.8vw, 26px); height: 5px; background: #00000040; transition: background 0.2s; }
+  .hashband .bars i.on { background: #140700; }
+  .hashband .next { margin-top: 8px; font: 600 clamp(10px, 1vw, 13px) var(--label); letter-spacing: 0.3em; text-transform: uppercase; }
+  /* the golden cube: six squares turning in 3D */
+  .gcube { --z: clamp(16px, 2.6vw, 38px); width: calc(var(--z) * 2); height: calc(var(--z) * 2); perspective: 500px; flex: none; }
+  .gcube div { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; animation: gspin 3.6s linear infinite; }
+  .gcube span { position: absolute; inset: 0; background: linear-gradient(135deg, #fff3c4, #ffcf5a 50%, #a87a0a); border: 1px solid #fff7; box-shadow: inset 0 0 14px #fff6; }
+  .gcube span:nth-child(1) { transform: translateZ(var(--z)); } .gcube span:nth-child(2) { transform: rotateY(90deg) translateZ(var(--z)); }
+  .gcube span:nth-child(3) { transform: rotateY(180deg) translateZ(var(--z)); } .gcube span:nth-child(4) { transform: rotateY(-90deg) translateZ(var(--z)); }
+  .gcube span:nth-child(5) { transform: rotateX(90deg) translateZ(var(--z)); } .gcube span:nth-child(6) { transform: rotateX(-90deg) translateZ(var(--z)); }
+  @keyframes gspin { from { transform: rotateX(-24deg) rotateY(0); } to { transform: rotateX(-24deg) rotateY(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .gcube div { animation: none; } .hashband .band { transition: none; } }
 
   /* names in space */
   #labels { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
@@ -294,7 +311,7 @@
     .plate .n b { display: inline; font-size: 26px; }
     .plate .btn.attack { min-width: 168px; padding: 20px 22px; font-size: 18px; }
     .tag { font-size: 10px; }
-    .banner p { font-size: 15px; }
+    .hashband .band { padding: 16px 0; gap: 14px; }
     /* the hangar fills the screen: the list first, a card's detail on its own page with a way back */
     dialog.hangar { width: 100vw; height: 100dvh; max-height: 100dvh; margin: 0; border: 0; }
     .hg-top { padding: calc(12px + var(--sat)) 16px 4px; }
@@ -350,7 +367,7 @@
     .plate .n b { font-size: 24px; }
     .plate .btn.attack { min-width: 140px; padding: 16px 20px; font-size: 16px; }
     .tag { font-size: 10px; }
-    .banner h2 { font-size: 30px; }
+    .hashband .band { padding: 10px 0; } .hashband .hb-name { font-size: 24px; } .hashband .bars { margin-top: 6px; }
     dialog.hangar { width: 100vw; height: 100dvh; max-height: 100dvh; margin: 0; border: 0; }
     .hg-top { padding: calc(8px + var(--sat)) calc(20px + var(--sar)) 0 calc(20px + var(--sal)); }
     .hg-top .eyebrow { display: none; }
@@ -415,7 +432,11 @@
   <div class="status" id="attackStatus" role="status" aria-live="polite"></div>
 </div>
 
-<div class="banner" id="banner" aria-live="assertive"><div class="eyebrow">Hash found</div><h2 id="bannerName"></h2><p id="bannerText"></p></div>
+<div class="hashband" id="hashBand" role="status" aria-live="assertive" hidden>
+  <div class="band"><div class="gcube" aria-hidden="true"><div><span></span><span></span><span></span><span></span><span></span><span></span></div></div>
+    <div><div class="lbl" id="hbWhere">Hash found</div><div class="hb-name" id="hbTag"></div><div class="bars" id="hbBars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="next" id="hbNext"></div></div>
+  </div>
+</div>
 <div class="busy" id="busy">Loading the current planet…</div>
 
 <dialog class="hangar" id="hangar" aria-labelledby="hgTitle">
@@ -582,13 +603,19 @@ uniform usampler3D uMask;       // 0 exposed, 1..64 melting in slot k, 254 burie
 uniform sampler3D uHeatT;       // when this block's crater glow started
 uniform sampler3D uHeatC;       // colour of that glow (the weapon that caused it)
 uniform float uSlotT[${SLOTS}];
+// the hash found: seconds since the break-up began (<0: none), when the chunks burst, the planet's
+// radius in blocks, the hash block (blocks from the centre), chunk seeds and chunk centres (w: id)
+uniform float uBoom, uPop, uRad, uForm;
+uniform vec3 uHashC;
+uniform vec4 uChunkP[13], uChunkC[13];
 ${SURF_OUT}
 ${FACES}
+vec3 rotA(vec3 v, vec3 k, float a) { float c = cos(a), s = sin(a); return v * c + cross(k, v) * s + k * dot(k, v) * (1.0 - c); }
 void main() {
   int id = int(aCell);
   ivec3 ic = ivec3(id % uN, (id / uN) % uN, id / (uN * uN));
   uint m = texelFetch(uMask, ic, 0).r;
-  if (m >= 254u) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
+  if (m == 255u || (m == 254u && uBoom < -0.3)) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }   // buried blocks show once it breaks open
   float fn = float(uN);
   vec3 g = (vec3(ic) + 0.5) / fn * 2.0 - 1.0;
   float h = 1.0 / fn;
@@ -602,12 +629,52 @@ void main() {
     float age = uT - texelFetch(uHeatT, ic, 0).r;
     heat = min(1.0, exp(-age * 1.1) + 0.8 * exp(-age * 9.0));
   }
-  vec3 s = sign(uCam - g);
+  // the break-up, worked out per block from one clock value (positions in blocks from the centre)
+  float hb = fn * 0.5, sc = 1.0, tum = 0.0, rot = 0.0, em2 = 0.0;
+  vec3 c = g * hb, cen = c, axis = vec3(0.0, 1.0, 0.0), kx = vec3(0.0, 1.0, 0.0), emC = vec3(1.0, 0.45, 0.08);
+  float rb = hash(uint(id) * 31u + 7u);
+  if (uBoom > -0.3) {
+    vec3 dir = normalize(c + 1e-4), camD = normalize(uCam);
+    float dh = length(c - uHashC), kR = uRad / 11.0;
+    kx = normalize(vec3(rb - 0.5, 0.7, 0.4));
+    if (dh < 0.6) { em2 = 2.4; emC = vec3(1.0, 0.8, 0.3); sc = 1.25; }   // the hash block itself
+    if (uBoom >= 0.0) {
+      float b = uBoom < uPop + 0.35 ? uBoom : uPop + 0.35 + (uBoom - uPop - 0.35) * 0.25;   // slow motion after the burst
+      float d1 = 1e9, d2 = 1e9; int best = 0;
+      for (int i = 0; i < 13; i++) { float d = length(c - uChunkP[i].xyz); if (d < d1) { d2 = d1; d1 = d; best = i; } else if (d < d2) d2 = d; }
+      vec3 cc = uChunkC[best].xyz; float idc = uChunkC[best].w, crack = step(d2 - d1, 1.1);
+      float front = b * 34.0 * kR;
+      em2 = max(em2, smoothstep(front, front - 5.0, dh) * (crack * 2.8 + 0.3));
+      float mm = max(0.0, b - uPop);
+      vec3 cdir = normalize(cc + 1e-4) * (0.7 + fract(idc * 8.03) * 0.7), off = cdir * 5.5 * kR * mm / (1.0 + mm * 0.45);
+      tum = mm * (1.5 + idc * 3.0);
+      axis = normalize(vec3(sin(idc * 12.9), cos(idc * 7.3), sin(idc * 3.1) + 0.3));
+      em2 *= exp(-mm * 0.9);
+      if (crack > 0.5 && mm > 0.0) {   // the crack lines blow out as burning debris
+        off = dir * (5.0 + 8.0 * rb) * kR * mm / (1.0 + mm * 0.6) + cdir * 1.5 * kR * mm;
+        tum = 0.0; rot = mm * (6.0 + 10.0 * rb);
+        sc = 0.55 * (1.0 - smoothstep(0.0, 0.7 + rb * 0.7, mm));
+        em2 = 2.6 * (1.0 - smoothstep(0.0, 1.2, mm)); emC = mix(vec3(1.0, 0.85, 0.5), vec3(1.0, 0.3, 0.04), clamp(mm, 0.0, 1.0));
+      }
+      sc *= 1.0 - smoothstep(3.6, 4.6, b);
+      off -= camD * max(0.0, dot(off, camD)) * 0.65;   // little flies at the viewer: it would fill the screen
+      cen = rotA(c - cc, axis, tum) + cc + off;
+    }
+  }
+  if (uForm >= 0.0) {   // the next planet warps in
+    float wg = clamp(uForm / 0.9, 0.0, 1.0), we = 1.0 - pow(1.0 - wg, 4.0);
+    cen = c * we - normalize(uCam) * (1.0 - we) * 25.0 * (uRad / 11.0); em2 = (1.0 - wg) * 2.0; emC = vec3(0.5, 0.85, 1.0);
+  }
+  if (sc <= 0.001) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
+  vec3 cw = cen / hb;
+  // the three faces turned to the camera, worked out in the block's own (turned) frame
+  vec3 vl = rotA(rotA(uCam - cw, axis, -tum), kx, -rot);
+  vec3 s = sign(vl);
   s += vec3(equal(s, vec3(0.0)));
   vec3 loc = F[gl_VertexID] * s;
-  vec3 pos = g + loc * h;
+  vec3 pos = cw + rotA(rotA(loc * h * sc, kx, rot), axis, tum);
   gl_Position = uMVP * vec4(pos, 1.0);
-  vLocal = loc; vPos = pos; vSN = normalize(g + 1e-6);
+  vLocal = loc; vPos = pos; vSN = normalize(cw + 1e-6);
 
   float rnd = hash(uint(id));
   float mat = float(aCol.a >> 5u);
@@ -620,7 +687,7 @@ void main() {
   vec3 hot = mix(base, vec3(1.0, 0.85, 0.5), lava * max(churn, 0.0) * 0.5);
   vec3 heatCol = texelFetch(uHeatC, ic, 0).rgb * 1.7;
   vBase = base;
-  vEm = hot * glow * 1.4 * k + heatCol * heat + vec3(1.2, 1.0, 0.85) * pow(heat, 4.0) * 1.4;
+  vEm = hot * glow * 1.4 * k + heatCol * heat + vec3(1.2, 1.0, 0.85) * pow(heat, 4.0) * 1.4 + emC * em2;
   vMat = mat;
   vRnd = rnd;
 }`;
@@ -1243,6 +1310,47 @@ function retire(s) {
 }
 // remove the next `count` blocks of the sequence now; they share one melt slot.
 // Returns the cells removed.
+// ---------------------------------------------------------------------------
+// the hash found: attacks stop, the hash block flares where the last shot landed, cracks run out,
+// a sharp burst, then slow motion while the chunks hang and turn; the next planet warps in.
+// All of it is one clock value in the planet shader; the CPU only sets up the chunks once.
+const BRK = { on: false, t0: 0, popped: false, hash: [0, 0, 0], pts: new Float32Array(13 * 4), ctr: new Float32Array(13 * 4), form: -1, shake: 0 };
+const BRK_POP = 0.6;   // seconds from the flare to the burst
+let lastCell = -1, lastCamW = [0, 0, 5];
+const cellPos = c => [c % N + 0.5 - C, ((c / N) | 0) % N + 0.5 - C, ((c / NN) | 0) + 0.5 - C];
+function breakUp() {
+  if (BRK.on || !total) return false;
+  volleys.length = 0;   // no more attacks on this planet (shots already in the air still land)
+  let hc = lastCell >= 0 && mask[lastCell] !== EMPTY ? lastCell : -1;
+  if (hc < 0) hc = cellOfG(surfaceTarget(toPlanet(norm(lastCamW))).g);
+  BRK.hash = hc >= 0 ? cellPos(hc) : [0, 0, R];
+  // thirteen chunks: seeds inside the planet, centres from the blocks still standing
+  let s = (seed ^ 0x9e3779b9) >>> 0;
+  const rnd = () => (s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296;
+  const pts = Array.from({ length: 13 }, () => { const z = rnd() * 2 - 1, a = rnd() * 6.283, r = Math.sqrt(1 - z * z), d = R * (0.45 + 0.4 * rnd()); return [Math.cos(a) * r * d, z * d, Math.sin(a) * r * d]; });
+  const sum = pts.map(() => [0, 0, 0, 0]);
+  for (let c = 0; c < mask.length; c++) {
+    const m = mask[c];
+    if (m === EMPTY) continue;
+    const p = cellPos(c);
+    let best = 0, bd = 1e9;
+    for (let i = 0; i < 13; i++) { const d = (p[0] - pts[i][0]) ** 2 + (p[1] - pts[i][1]) ** 2 + (p[2] - pts[i][2]) ** 2; if (d < bd) { bd = d; best = i; } }
+    sum[best][0] += p[0]; sum[best][1] += p[1]; sum[best][2] += p[2]; sum[best][3]++;
+    if (m === BURIED) listAdd(c);   // the insides show once it breaks open
+  }
+  pts.forEach((p, i) => { BRK.pts.set([p[0], p[1], p[2], 0], i * 4); const n = sum[i][3] || 1; BRK.ctr.set([sum[i][0] / n, sum[i][1] / n, sum[i][2] / n, i / 13], i * 4); });
+  BRK.on = true; BRK.t0 = clock; BRK.popped = false; BRK.form = -1; BRK.shake = 0;
+  const e = world.api(null), hw = toWorld(scale(BRK.hash, 1 / C));
+  e.flash(hw, 0.35, [1, 0.85, 0.45], 0.9);
+  return true;
+}
+// the burst, sparks and the jolt (called by the frame once the cracks have run)
+function breakBurst() {
+  const e = world.api(null), hw = toWorld(scale(BRK.hash, 1 / C)), n = norm(hw);
+  e.flash(hw, 0.9, [1, 0.95, 0.8], 0.45);
+  e.burst(hw, 140, 1.6, 0.9, 0.022, [[1, 0.85, 0.5], [1, 0.55, 0.15], [1, 0.35, 0.06]], n, 1.2);
+  BRK.shake = 1;
+}
 function fireBatch(count, col = [1, 0.42, 0.1]) {
   let s = slots.indexOf(null);
   if (s < 0) {
@@ -1256,6 +1364,7 @@ function fireBatch(count, col = [1, 0.42, 0.1]) {
     if (c < 0) break;
     removeBlock(c, s + 1);
     list.push(c);
+    lastCell = c;
     heatBox(warm(c, col));
     maskBox(cellBox(c, 1));
   }
@@ -1488,6 +1597,7 @@ function pickAttacker(siteDir, shipId) {
   return best;
 }
 function schedule(n, shipId) {
+  if (BRK.on) return;   // the hash is found: this planet takes no more hits
   const already = pending();
   n = Math.min(n, total - removed - already);
   if (n <= 0) return;
@@ -1593,6 +1703,7 @@ const planet = {
   load(name, radius, newSeed, shareLeft) {
     const i = PLANETS.findIndex(p => p.name.toLowerCase() === String(name).toLowerCase());
     if (i < 0) return false;
+    if (BRK.on) { BRK.on = false; BRK.form = clock; canvas.style.transform = ''; }   // after a break-up: the next planet warps in
     pIdx = i; liveR = Math.max(4, radius | 0); showPlanetInfo();
     seed = newSeed >>> 0;
     build();
@@ -1623,6 +1734,8 @@ const planet = {
   get remaining() { return total - removed - pending(); },
   get seed() { return seed; },
   get name() { return def.name; },
+  breakUp: () => breakUp(),   // the hash is found: the planet comes apart (the next load warps in)
+  get breaking() { return BRK.on; },
 };
 window.planet = planet;
 
@@ -1992,7 +2105,7 @@ function frame(now) {
   if (!paused) {
     clock += dt;
     simT += rawDt;   // real time, so attacks finish within 3 s even when frames are slow
-    spin += dt * 0.07;
+    if (!BRK.on) spin += dt * 0.07;   // the planet stops turning while it breaks
   }
   const W = canvas.width, H = canvas.height, aspect = W / H;
 
@@ -2030,6 +2143,13 @@ function frame(now) {
   const VP = mul(P, mul(translate(0, 0, -dist), viewRot));
   const camW = toObj(viewRot, [0, 0, dist]);
   const Spin = rotY(spin);
+  lastCamW = camW;
+  const boom = BRK.on ? clock - BRK.t0 - 0.25 : -1;
+  if (BRK.on && !BRK.popped && boom >= BRK_POP) { BRK.popped = true; breakBurst(); }
+  if (BRK.shake > 0.02) {   // the jolt: the canvas shakes, cheap
+    BRK.shake *= Math.exp(-dt * 2.2);
+    canvas.style.transform = `translate(${((Math.random() - 0.5) * 14 * BRK.shake).toFixed(1)}px, ${((Math.random() - 0.5) * 14 * BRK.shake).toFixed(1)}px)`;
+  } else if (BRK.shake) { BRK.shake = 0; canvas.style.transform = ''; }
 
   let q = null;
   if (timerExt && queries.length < 4) { q = gl.createQuery(); gl.beginQuery(timerExt.TIME_ELAPSED_EXT, q); }
@@ -2059,7 +2179,7 @@ function frame(now) {
   uploadList();
   flushUploads();
   let u;
-  if (looks.on) drawPlanetSdf(VP, Spin, camW);
+  if (looks.on && !BRK.on && !(BRK.form >= 0 && clock - BRK.form < 1)) drawPlanetSdf(VP, Spin, camW);   // breaking up and warping in: blocks
   else {
   gl.useProgram(planetProg.p);
   gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_3D, heatCTex);
@@ -2075,6 +2195,9 @@ function frame(now) {
   gl.uniform1f(u.uMelt, MELT);
   gl.uniform1fv(u.uSlotT, slotT);
   gl.uniform1f(u.uSNw, 0.75);
+  gl.uniform1f(u.uBoom, boom); gl.uniform1f(u.uPop, BRK_POP); gl.uniform1f(u.uRad, R);
+  gl.uniform1f(u.uForm, BRK.form >= 0 && clock - BRK.form < 1 ? clock - BRK.form : -1);
+  gl.uniform3fv(u.uHashC, BRK.hash); gl.uniform4fv(u.uChunkP, BRK.pts); gl.uniform4fv(u.uChunkC, BRK.ctr);
   gl.bindVertexArray(planetVao);
   gl.drawElementsInstanced(gl.TRIANGLES, 18, gl.UNSIGNED_BYTE, 0, listLen);
   }
