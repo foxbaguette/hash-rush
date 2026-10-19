@@ -7,10 +7,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Michroma&family=Barlow+Condensed:wght@500;600;800&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link rel="icon" href="favicon.svg?v=20261019e" type="image/svg+xml">
-<link rel="icon" href="favicon-32.png?v=20261019e" type="image/png" sizes="32x32">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=20261019e">
-<link rel="stylesheet" href="ui.css?v=20261019e">
+<link rel="icon" href="favicon.svg?v=20261019g" type="image/svg+xml">
+<link rel="icon" href="favicon-32.png?v=20261019g" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=20261019g">
+<link rel="stylesheet" href="ui.css?v=20261019g">
 <style>
   html, body { margin: 0; height: 100%; background: #000; color: var(--ink); overflow: hidden; font: 15px/1.5 var(--text); }
   canvas#c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; opacity: 0; transition: opacity 1s; }
@@ -135,7 +135,7 @@
   .fire.flash .burst::after { animation: ready-ring 1.1s cubic-bezier(.2, .8, .2, 1) 1; }
   .fire.flash .btn { animation: ready-pop 0.75s cubic-bezier(.2, .8, .2, 1) 1, btn-glitch 0.34s steps(1) 0.3s 1; }
   .btn.attack .lbl { position: relative; font-variant-numeric: tabular-nums; }
-  .btn.attack .cd { display: none; position: absolute; inset: 0 auto 0 0; width: 0; z-index: -1; background: repeating-linear-gradient(-45deg, #ff6a1a66 0 8px, #ff6a1a2e 8px 16px); background-size: 22.6px 22.6px; border-right: 2px solid var(--a-hi); animation: cd-stripes 0.9s linear infinite; transition: width 0.25s linear; }
+  .btn.attack .cd { display: none; position: absolute; inset: 0 auto 0 0; width: 0; z-index: -1; background: repeating-linear-gradient(-45deg, #ff6a1a66 0 8px, #ff6a1a2e 8px 16px); background-size: 22.6px 22.6px; border-right: 2px solid var(--a-hi); animation: cd-stripes 0.9s linear infinite; }
   .btn.attack.cooling { color: #eadfcd; letter-spacing: 0.2em; cursor: progress; background: repeating-linear-gradient(0deg, #ffffff08 0 1px, #0000 1px 3px), linear-gradient(180deg, #2a2420, #120f0c); }
   .btn.attack.cooling, .btn.attack.cooling:disabled { filter: none; }
   .btn.attack.cooling .cd { display: block; }
@@ -521,13 +521,13 @@
   </div>
 </dialog>
 
-<script src="planets-data.js?v=20261019e"></script>
-<script src="space.js?v=20261019e"></script>
-<script src="weapons-lib.js?v=20261019e"></script>
-<script src="aw-data.js?v=20261019e"></script>
-<script src="aw-designs.js?v=20261019e"></script>
-<script src="sdf.js?v=20261019e"></script>
-<script src="hero-gl.js?v=20261019e"></script>
+<script src="planets-data.js?v=20261019g"></script>
+<script src="space.js?v=20261019g"></script>
+<script src="weapons-lib.js?v=20261019g"></script>
+<script src="aw-data.js?v=20261019g"></script>
+<script src="aw-designs.js?v=20261019g"></script>
+<script src="sdf.js?v=20261019g"></script>
+<script src="hero-gl.js?v=20261019g"></script>
 <script>
 'use strict';
 /*
@@ -2388,6 +2388,6 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 </script>
-<script type="module" src="play.js?v=20261019e"></script>
+<script type="module" src="play.js?v=20261019g"></script>
 </body>
 </html>

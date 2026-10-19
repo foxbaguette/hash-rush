@@ -1,7 +1,7 @@
 // The Hash Rush, live screen: the planet being mined on planetmining, every crew that attacked in
 // the last 30 minutes in orbit, the attack log replayed as it comes in, and the hangar where a
 // player changes their playertag and equips crew and weapon.
-import * as chain from './chain.js?v=20261019e';
+import * as chain from './chain.js?v=20261019g';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
@@ -362,18 +362,21 @@ $('attackBtn').addEventListener('click', async () => {
   try {
     await chain.attack();
     S.firedAt = Date.now();
+    S.cdEnd = Date.now() + (S.cooldown + 1) * 1000;
     S.player = { ...S.player, last_action: new Date().toISOString().slice(0, 19) };   // the cooldown starts now
-    say($('attackStatus'), 'Fired. Watch your ship.');
+    say($('attackStatus'), '');   // the shots on screen say it
     // your hit is in the log now: read it right away and play it
     for (let i = 0; i < 4; i++) { await new Promise(r => setTimeout(r, 700)); await pollNow(); }
-    setTimeout(() => say($('attackStatus'), ''), 4000);
   } catch (err) {
     say($('attackStatus'), chain.friendlyError(err), true);
   } finally { S.firing = false; updateAttack(); }
 });
 
 // cooldown on the button: a filling stripe and a countdown, then a burst when it is ready again
-const cooldownLeft = () => !S.player || !S.cooldown ? 0 : Math.max(0, chain.chainTime(S.player.last_action) + S.cooldown - Date.now() / 1000);
+// the end of the recharge: from the chain's time of your last attack, or, right after you fired, from
+// this clock plus a second (the block that holds the attack is a little later than the click)
+const cooldownLeft = () => !S.player || !S.cooldown ? 0 :
+  Math.max(0, Math.max(chain.chainTime(S.player.last_action) + S.cooldown, (S.cdEnd || 0) / 1000) - Date.now() / 1000);
 const mmss = s => { s = Math.ceil(s); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
 let wasCooling = null;
 function updateAttack() {
@@ -381,7 +384,6 @@ function updateAttack() {
   btn.classList.toggle('cooling', cooling);
   if (cooling) {
     $('attackLbl').textContent = 'Recharging ' + mmss(left);
-    $('cdFill').style.width = (100 * (1 - left / S.cooldown)).toFixed(1) + '%';
   } else $('attackLbl').textContent = S.firing ? 'Firing…' : S.attackReady ? 'Attack' : 'Equip to attack';
   btn.disabled = S.spectating || cooling || S.firing;
   if (wasCooling && !cooling) {   // charged again
@@ -394,6 +396,19 @@ function updateAttack() {
   wasCooling = cooling;
 }
 setInterval(updateAttack, 250);
+// the recharge bar, drawn every frame; within one recharge it only ever moves forward (a later time
+// from the chain makes it wait a moment instead of pulling back)
+let cdShown = 0, cdOn = false;
+(function drawCooldown() {
+  const left = cooldownLeft(), on = left > 0 && !S.spectating;
+  if (on) {
+    if (!cdOn) cdShown = 0;
+    cdShown = Math.max(cdShown, 1 - left / S.cooldown);
+    $('cdFill').style.width = (100 * cdShown).toFixed(2) + '%';
+  }
+  cdOn = on;
+  requestAnimationFrame(drawCooldown);
+})();
 
 // ---------------------------------------------------------------- the hangar
 const H = {
