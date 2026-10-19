@@ -1,8 +1,8 @@
 // The Hash Rush, live screen: the planet being mined on planetmining, every crew that attacked in
 // the last 30 minutes in orbit, the attack log replayed as it comes in, and the hangar where a
 // player changes their playertag and equips crew and weapon.
-import * as chain from './chain.js?v=20261019o';
-import * as gains from './gains.js?v=20261019o';
+import * as chain from './chain.js?v=20261019r';
+import * as gains from './gains.js?v=20261019r';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
@@ -179,8 +179,8 @@ function playHit(log) {
   // the same share of the game planet as of the contract's planet; leftovers carry over
   const exact = planet.total * dmg / S.shown.total + S.carry, n = Math.floor(exact);
   S.carry = exact - n;
-  // your own mining attack: its hashlings ride a beam from the hits up to your balance
-  if (log.wallet === S.account && S.firedMine && !log.simulated && Date.now() - S.firedAt < 120000) gains.expect(dmg, n);
+  // your own mining attack: its hashlings fly from the hits to your balance as comets
+  if (log.wallet === S.account && S.firedMine && !log.simulated && Date.now() - S.firedAt < 70000) gains.expect(dmg, n);
   if (n > 0) planet.attack(n, ship ? ship.id : undefined);
   S.shown.destroyed = Math.min(S.shown.total, S.shown.destroyed + dmg);
   updateHud();
@@ -205,7 +205,6 @@ async function poll() {
   if (S.damage.size !== known && S.player) showMe();
   if (cfg) S.cooldown = Number(cfg.cooldown_sec) || 0;   // 0 until the contract with cooldowns is deployed; a failed read keeps the last value
   if (me && S.player && !S.firing) S.player = { ...me, last_action: chain.chainTime(me.last_action) >= chain.chainTime(S.player.last_action) ? me.last_action : S.player.last_action };
-  if (me) gains.sync(statOf(me, 'hashlings'));
   if (!tr) { $('busy').textContent = 'No planet is being mined right now.'; return; }
   if (!S.shown) loadPlanet(tr);
 
@@ -226,8 +225,10 @@ async function poll() {
     S.lastLog = Math.max(S.lastLog, Number(log.index));
     if (S.away) { if (log.hash_found) S.away.hash = log; continue; }
     const mine = log.wallet === S.account && Date.now() - S.firedAt < 60000;
+    if (mine && S.firedMine) gains.reserve(Number(log.damage_done));   // held back on the balance until its comet brings it in
     setTimeout(() => { if (gen === S.gen) playHit(log); }, mine ? 200 : Math.random() * POLL_MS * 0.9);
   }
+  if (me) gains.sync(statOf(me, 'hashlings'), S.account);
   if (S.away) return;   // a hidden tab only keeps count; the planet is redrawn on return
   if (Number(tr.index) !== S.shown.index) {
     // the hash was found: the next planet arrives when the countdown ends (or right away if it already has)
@@ -293,9 +294,9 @@ function showMe() {
   $('loadout').hidden = !p;
   if (p) {
     const hashes = Ranks.hashesOf(p);
+    gains.sync(statOf(p, 'hashlings'), p.wallet);
     $('who').innerHTML = '<small>Playing as' + (hashes ? ' · ' + Ranks.title(hashes) : '') + '</small><b style="color:' + colorOf(p) + '">' + esc(p.playertag) + Ranks.badge(hashes) + '</b>' +
-      '<span class="hl" id="hlBal" title="Hashlings">' + gains.ICON + '<span>' + fmt(gains.shown ?? statOf(p, 'hashlings')) + '</span></span>';
-    gains.sync(statOf(p, 'hashlings'));
+      '<span class="hl" id="hlBal" title="Hashlings">' + gains.ICON + '<span>' + fmt(gains.shown ?? 0) + '</span></span>';
     const c = TPL.get(Number(p.equipped_crew_template)), w = TPL.get(Number(p.equipped_weapon_template));
     renderDock($('tCrew'), c, 'crew'); renderDock($('tArms'), w, 'arms');
     $('loDmg').textContent = c && w ? damageOf(c.card, c.shine, Number(p.equipped_crew_template)) + damageOf(w.card, w.shine, Number(p.equipped_weapon_template)) : '–';
@@ -437,6 +438,48 @@ $('historyBtn').addEventListener('click', async () => {
   } catch (err) { $('historyList').innerHTML = '<div class="empty">Could not load the planets right now.</div>'; console.error(err); }
 });
 $('historyClose').addEventListener('click', () => $('history').close());
+
+// CPU: used and left, and renting more for 24 hours with the eosio powerup
+const CPU = { pw: null, wax: 0 };
+const ms = us => (us / 1000).toLocaleString('en-US', { maximumFractionDigits: 1 });
+async function showCpu() {
+  if (!S.account) return;
+  const c = await chain.getCpu(S.account);
+  const pct = c.max ? Math.min(100, 100 * c.used / c.max) : 100;
+  $('cpuBar').style.width = pct.toFixed(1) + '%'; $('cpuBar').classList.toggle('low', pct > 85);
+  $('cpuUsed').textContent = ms(c.used); $('cpuLeft').textContent = ms(c.available); $('cpuMax').textContent = ms(c.max);
+  CPU.wax = c.wax; $('cpuBal').textContent = c.wax.toLocaleString('en-US', { maximumFractionDigits: 4 }) + ' WAX';
+}
+function cpuEstimate() {
+  const wax = Number($('cpuWax').value);
+  if (!CPU.pw || !(wax > 0)) { $('cpuGet').textContent = '–'; return; }
+  $('cpuGet').textContent = Math.floor(chain.powerupFor(CPU.pw, wax).ms).toLocaleString('en-US');
+}
+$('cpuBtn').addEventListener('click', async () => {
+  closeMeMenu();
+  $('cpuWho').textContent = S.player ? S.player.playertag + ' · ' + S.account : S.account;
+  $('cpuUp').disabled = !!S.spectating;
+  say($('cpuStatus'), S.spectating ? 'Watching: connect your own wallet to power up.' : '');
+  $('cpu').showModal();
+  try { await Promise.all([showCpu(), chain.getPowerup().then(pw => { CPU.pw = pw; cpuEstimate(); })]); }
+  catch (err) { say($('cpuStatus'), 'Could not read the chain right now.', true); console.error(err); }
+});
+$('cpuWax').addEventListener('input', cpuEstimate);
+$('cpuUp').addEventListener('click', async () => {
+  const wax = Number($('cpuWax').value);
+  if (!(wax > 0)) return say($('cpuStatus'), 'Enter how much WAX to spend.', true);
+  if (wax > CPU.wax) return say($('cpuStatus'), 'You have ' + CPU.wax.toLocaleString('en-US', { maximumFractionDigits: 4 }) + ' WAX.', true);
+  $('cpuUp').disabled = true; say($('cpuStatus'), 'Confirm in your wallet…');
+  try {
+    if (!chain.account()) { S.account = await chain.login(); if (!S.account) { say($('cpuStatus'), ''); return; } }
+    await chain.powerup(wax);
+    say($('cpuStatus'), 'Powered up for 24 hours.');
+    setTimeout(() => showCpu().catch(() => undefined), 1500);
+    CPU.pw = await chain.getPowerup(); cpuEstimate();
+  } catch (err) { say($('cpuStatus'), chain.friendlyError(err), true); }
+  finally { $('cpuUp').disabled = false; }
+});
+$('cpuClose').addEventListener('click', () => $('cpu').close());
 $('autoSave').addEventListener('click', async () => {
   const want = autoChosen(), boxes = [...document.querySelectorAll('#autoRows input')];
   boxes.forEach(b => { b.disabled = true; }); $('autoSave').disabled = true;
@@ -483,8 +526,13 @@ $('attackBtn').addEventListener('click', async () => {
     const wait = /wait (\d+) more second/i.exec(String(err?.message ?? err));
     if (wait && S.player) { chainCooldown(Number(wait[1])); say($('attackStatus'), ''); }   // not an error: still recharging on the chain
     else {
-      say($('attackStatus'), chain.friendlyError(err), true);
-      if (S.autoFire) S.autoPause = Date.now() + 20000;   // auto attack waits a little before trying again
+      // a failed attack switches auto attack off, so it never keeps firing into the same error
+      const wasAuto = S.autoFire;
+      if (wasAuto) {
+        S.autoFire = false; $('autoFire').checked = false;
+        try { localStorage.setItem(AUTOFIRE_KEY, '0'); } catch { /* this visit only */ }
+      }
+      say($('attackStatus'), chain.friendlyError(err) + (wasAuto ? ' Auto attack is off.' : ''), true);
     }
   } finally { S.firing = false; updateAttack(); }
 });

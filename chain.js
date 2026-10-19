@@ -112,11 +112,15 @@ export const AUTO_ACTIONS = [
   { name: 'attack', label: 'Attack', note: 'Fire at the planet' },
   { name: 'setequip', label: 'Equip', note: 'Change your crew or weapon' },
   { name: 'settag', label: 'Playertag', note: 'Change your playertag' },
+  { name: 'powerup', contract: 'eosio', label: 'CPU powerup', note: 'Rent CPU for 24 hours. Spends WAX' },
 ];
+const contractOf = name => AUTO_ACTIONS.find(a => a.name === name)?.contract || CONTRACT;
+// the whitelist, one entry per contract
+const groupAuto = names => [...new Set(names.map(contractOf))].map(c => ({ contract: c, actions: names.filter(n => contractOf(n) === c) }));
 const AUTO_KEY = 'hashrush.autosign.v1';
 const savedAuto = () => { try { const a = JSON.parse(localStorage.getItem(AUTO_KEY)); if (Array.isArray(a)) return a; } catch { /* none */ } return ['attack']; };
 let Name = null;
-const whitelistOf = names => names.length ? [{ contract: Name.from(CONTRACT), actions: names.map(n => Name.from(n)) }] : [];
+const whitelistOf = names => groupAuto(names).map(g => ({ contract: Name.from(g.contract), actions: g.actions.map(n => Name.from(n)) }));
 let kit = null, current;
 let onPickerClosed = null;   // set while the wallet picker is open
 
@@ -137,7 +141,7 @@ function getKit() {
       walletPlugins: [new WalletPluginCloudWallet(), new WalletPluginAnchor()],
     }, {
       // auto-sign: a key kept in this browser that may sign only the actions the player chose
-      sessionKey: { permission: QUICK_PERMISSION, whitelist: [{ contract: CONTRACT, actions: savedAuto() }] },
+      sessionKey: { permission: QUICK_PERMISSION, whitelist: groupAuto(savedAuto()) },
     });
   })();
   kit.catch(() => { kit = null; });   // a failed download can be retried
@@ -210,6 +214,57 @@ export function attack(mine = false) {
   const actor = String(current.actor), permission = String(current.permission);
   return attackHasMine().then(has => transact([{ account: CONTRACT, name: 'attack', authorization: [{ actor, permission }],
     data: has ? { wallet: actor, mine: !!mine } : { wallet: actor } }]));
+}
+
+// ---------------------------------------------------------------- CPU and the eosio powerup
+/** An account's CPU right now, in microseconds, and its WAX. */
+export async function getCpu(account) {
+  const a = await rpc('/v1/chain/get_account', { account_name: account });
+  const c = a.cpu_limit || {};
+  return { used: Number(c.used) || 0, available: Number(c.available) || 0, max: Number(c.max) || 0, wax: parseFloat(a.core_liquid_balance) || 0 };
+}
+const POWERUP_FRAC = 1e15;
+const CPU_SAMPLE = 'm.federation';   // a big, steady staker: how much CPU one unit of stake gives right now
+/** What the powerup estimate needs: the market's state and CPU per unit of weight. */
+export async function getPowerup() {
+  const [st, sample] = await Promise.all([
+    rpc('/v1/chain/get_table_rows', { json: true, code: 'eosio', scope: '0', table: 'powup.state', limit: 1 }).then(r => r.rows?.[0]),
+    rpc('/v1/chain/get_account', { account_name: CPU_SAMPLE }),
+  ]);
+  if (!st) throw new Error('The powerup is not available right now.');
+  return { cpu: st.cpu, at: Date.now() / 1000, usPerWeight: Number(sample.cpu_limit.max) / Number(sample.cpu_weight) };
+}
+// the fee in WAX for a share (frac of 1e15) of the CPU market, as eosio's powerup.cpp computes it
+function powerupFee(pw, frac) {
+  const r = pw.cpu, weight = Number(r.weight), util = Number(r.utilization), exp = Number(r.exponent);
+  const min = parseFloat(r.min_price), max = parseFloat(r.max_price);
+  // adjusted utilization decays toward utilization over decay_secs
+  let adj = Number(r.adjusted_utilization);
+  if (adj > util) adj = util + (adj - util) * Math.exp(-(pw.at - chainTime(r.utilization_timestamp)) / Number(r.decay_secs));
+  const priceAt = u => exp - 1 <= 0 ? max : min + (max - min) * Math.pow(u / weight, exp - 1);
+  const integral = (a, b) => min * (b - a) / weight + (max - min) / exp * (Math.pow(b / weight, exp) - Math.pow(a / weight, exp));
+  const inc = frac * weight / POWERUP_FRAC;
+  let start = util, fee = 0;
+  if (start < adj) { fee += priceAt(adj) * Math.min(inc, adj - start) / weight; start = adj; }
+  if (start < util + inc) fee += integral(start, util + inc);
+  return fee;
+}
+/** How much CPU `wax` buys for 24 hours: the share to ask for and about how many ms it gives. */
+export function powerupFor(pw, wax) {
+  if (!(wax > 0)) return { frac: 0, ms: 0 };
+  let lo = 0, hi = POWERUP_FRAC;
+  for (let i = 0; i < 60; i++) { const mid = (lo + hi) / 2; if (powerupFee(pw, mid) <= wax) lo = mid; else hi = mid; }
+  const frac = Math.floor(lo);
+  return { frac, ms: frac / POWERUP_FRAC * Number(pw.cpu.weight) * pw.usPerWeight / 1000 };
+}
+/** Rents CPU for 24 hours, paying at most `wax`. */
+export async function powerup(wax) {
+  const pw = await getPowerup();
+  const { frac } = powerupFor(pw, wax * 0.98);   // a little room for the price moving before the block
+  if (frac <= 0) throw new Error('That is too little WAX for a powerup.');
+  const actor = String(current.actor), permission = String(current.permission);
+  return transact([{ account: 'eosio', name: 'powerup', authorization: [{ actor, permission }],
+    data: { payer: actor, receiver: actor, days: 1, net_frac: 0, cpu_frac: String(frac), max_payment: wax.toFixed(8) + ' WAX' } }]);
 }
 
 /** Whether the deployed contract's attack takes "mine" (mining: hashlings per block, automated tasks).

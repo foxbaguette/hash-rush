@@ -7,10 +7,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Michroma&family=Barlow+Condensed:wght@500;600;800&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link rel="icon" href="favicon.svg?v=20261019o" type="image/svg+xml">
-<link rel="icon" href="favicon-32.png?v=20261019o" type="image/png" sizes="32x32">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=20261019o">
-<link rel="stylesheet" href="ui.css?v=20261019o">
+<link rel="icon" href="favicon.svg?v=20261019r" type="image/svg+xml">
+<link rel="icon" href="favicon-32.png?v=20261019r" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=20261019r">
+<link rel="stylesheet" href="ui.css?v=20261019r">
 <style>
   html, body { margin: 0; height: 100%; background: #000; color: var(--ink); overflow: hidden; font: 15px/1.5 var(--text); }
   canvas#c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; opacity: 0; transition: opacity 1s; }
@@ -153,6 +153,8 @@
   .plate .pswitch .mining:has(input:checked) .cpu { display: inline; }
   /* destroyed planets: a list, newest first */
   dialog.history { width: min(560px, calc(100vw - 32px)); max-width: none; max-height: min(720px, calc(100dvh - 32px)); padding: 0; border: 1px solid var(--line); background: var(--glass); color: var(--ink); box-shadow: 0 40px 100px #000d; }
+  dialog.history[open] { display: flex; flex-direction: column; overflow: hidden; }   /* only the list scrolls */
+  .history .list { flex: 1 1 auto; min-height: 0; }
   dialog.history::backdrop { background: #000b; backdrop-filter: blur(4px); }
   .history .head { display: flex; justify-content: space-between; align-items: flex-start; padding: 24px 26px 10px; }
   .history h2 { font: 400 22px var(--display); margin: 8px 0 0; }
@@ -168,6 +170,23 @@
   .history .pl .bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--a-lo), var(--a-hi)); }
   .history .pl.now h3::after { content: 'Now mining'; margin-left: 10px; font: 600 11px var(--label); letter-spacing: 0.3em; text-transform: uppercase; color: var(--a); vertical-align: 3px; }
   .history .empty { padding: 20px 0; color: var(--mute); }
+  /* CPU: what the account has, and renting more with the eosio powerup */
+  .cpu .meter { margin: 6px 0 10px; height: 6px; }
+  .cpu .meter i { transition: width 0.6s; }
+  .cpu .meter i.low { background: linear-gradient(90deg, #a3201a, #ff5a3d); box-shadow: 0 0 12px #ff3d2e; }
+  .cpu-nums { display: flex; justify-content: space-between; font-size: 14px; color: var(--mute); }
+  .cpu-nums b { font: 400 18px var(--display); color: var(--ink); font-weight: 400; margin-right: 4px; }
+  .cpu-note { margin: 8px 0 0; font-size: 13px; color: var(--mute); }
+  .cpu-up { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); }
+  .cpu-in { display: flex; align-items: center; gap: 10px; margin: 12px 0 8px; }
+  .cpu-in input { width: 9em; font: 400 20px var(--display); color: var(--ink); background: #ffffff0d; border: 1px solid #ffffff24; border-radius: 2px; padding: 8px 10px; outline: none; }
+  .cpu-in input:focus { border-color: var(--a); }
+  .cpu-in span { font: 600 13px var(--label); letter-spacing: 0.24em; color: var(--mute); }
+  .cpu-get { margin: 0; font-size: 15px; color: #c9c1b3; }
+  .cpu-get b { color: var(--a-hi); font-weight: 600; }
+  .cpu-bal { margin: 4px 0 0; font-size: 13px; color: var(--mute); }
+  .cpu-foot { display: flex; align-items: center; gap: 14px; margin-top: 14px; }
+  .cpu-foot .status { flex: 1; margin: 0; font-size: 13px; color: var(--mute); }
   @media (max-width: 640px) and (orientation: portrait) {
     dialog.history { width: 100vw; max-height: 100dvh; height: 100dvh; margin: 0; border: 0; }
     .history .head { padding: calc(14px + var(--sat)) 16px 8px; }
@@ -206,7 +225,7 @@
   /* ranks (ranks.js): a small badge right after the name */
   .tag .rank { width: 16px; height: 16px; margin-left: 5px; vertical-align: -4px; filter: drop-shadow(0 1px 3px #000); }
   .feed .row .rank { width: 17px; height: 17px; flex: none; margin-left: -3px; }
-  /* hashlings: the balance under your playertag, and the beam that pays into it (gains.js) */
+  /* hashlings: the balance under your playertag, and the comets that pay into it (gains.js) */
   .who .hl { display: flex; justify-content: flex-end; align-items: center; gap: 6px; margin-top: 3px; font: 400 13px var(--display); color: var(--gold, #ffcf5a); font-variant-numeric: tabular-nums; text-shadow: 0 1px 8px #000; }
   .who .hl .hl-icon { width: 15px; height: 15px; flex: none; }
   .who .hl.bump { animation: hl-bump 0.32s; }
@@ -470,6 +489,7 @@
       <button class="link" id="hangarBtn" type="button" hidden>Hangar</button>
       <button class="link" id="autoBtn" type="button" hidden>Auto-sign</button>
       <button class="link" id="historyBtn" type="button">Destroyed planets</button>
+      <button class="link" id="cpuBtn" type="button">CPU and powerup</button>
       <div class="menu-look"><small>Look</small>
         <div class="seg" role="group" aria-label="Look"><button type="button" data-look="vox">Voxels</button><button type="button" data-look="sdf">Distance field</button></div>
         <button class="link" id="lookTune" type="button" aria-expanded="false" aria-controls="lookPanel">Tune the look</button>
@@ -513,6 +533,22 @@
 <dialog class="history" id="history" aria-labelledby="historyTitle">
   <div class="head"><div><div class="eyebrow">The hash rush so far</div><h2 id="historyTitle">Destroyed planets</h2></div><button class="link" id="historyClose" type="button">Close</button></div>
   <div class="list" id="historyList"></div>
+</dialog>
+
+<dialog class="history cpu" id="cpu" aria-labelledby="cpuTitle">
+  <div class="head"><div><div class="eyebrow" id="cpuWho">Your account</div><h2 id="cpuTitle">CPU</h2></div><button class="link" id="cpuClose" type="button">Close</button></div>
+  <div class="list">
+    <div class="meter cpu-meter"><i id="cpuBar"></i></div>
+    <div class="cpu-nums"><span><b id="cpuUsed">–</b> ms used</span><span><b id="cpuLeft">–</b> ms left</span></div>
+    <p class="cpu-note">Of <span id="cpuMax">–</span> ms. Used CPU comes back over 24 hours. Every attack costs a little; mining costs more.</p>
+    <div class="cpu-up">
+      <div class="eyebrow">Power up for 24 hours</div>
+      <label class="cpu-in"><input id="cpuWax" type="number" min="0" step="0.1" value="1" inputmode="decimal"><span>WAX</span></label>
+      <p class="cpu-get">You get about <b id="cpuGet">–</b> ms of CPU for 24 hours.</p>
+      <p class="cpu-bal">Your WAX: <span id="cpuBal">–</span></p>
+      <div class="cpu-foot"><button class="btn small" id="cpuUp" type="button">Power up</button><p class="status" id="cpuStatus" role="status"></p></div>
+    </div>
+  </div>
 </dialog>
 
 <dialog class="auto" id="autoSign" aria-labelledby="autoTitle">
@@ -572,14 +608,14 @@
   </div>
 </dialog>
 
-<script src="planets-data.js?v=20261019o"></script>
-<script src="space.js?v=20261019o"></script>
-<script src="weapons-lib.js?v=20261019o"></script>
-<script src="aw-data.js?v=20261019o"></script>
-<script src="aw-designs.js?v=20261019o"></script>
-<script src="sdf.js?v=20261019o"></script>
-<script src="hero-gl.js?v=20261019o"></script>
-<script src="ranks.js?v=20261019o"></script>
+<script src="planets-data.js?v=20261019r"></script>
+<script src="space.js?v=20261019r"></script>
+<script src="weapons-lib.js?v=20261019r"></script>
+<script src="aw-data.js?v=20261019r"></script>
+<script src="aw-designs.js?v=20261019r"></script>
+<script src="sdf.js?v=20261019r"></script>
+<script src="hero-gl.js?v=20261019r"></script>
+<script src="ranks.js?v=20261019r"></script>
 <script>
 'use strict';
 /*
@@ -2464,6 +2500,6 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 </script>
-<script type="module" src="play.js?v=20261019o"></script>
+<script type="module" src="play.js?v=20261019r"></script>
 </body>
 </html>
