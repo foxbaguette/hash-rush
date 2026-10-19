@@ -1,7 +1,7 @@
 // The Hash Rush, live screen: the planet being mined on planetmining, every crew that attacked in
 // the last 30 minutes in orbit, the attack log replayed as it comes in, and the hangar where a
 // player changes their playertag and equips crew and weapon.
-import * as chain from './chain.js?v=20261019l';
+import * as chain from './chain.js?v=20261019n';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
@@ -165,7 +165,7 @@ function playHit(log) {
   if (S.away) { if (log.hash_found) S.away.hash = log; return; }   // the tab is hidden: nothing to animate, it catches up on return
   if (S.seq && !log.hash_found) {
     if (Number(log.index) > S.seq.hashIndex) { S.seq.held.push(log); return; }   // a hit on the next planet: after it arrives
-    return feed(rankOfWallet(log.wallet) + '<span class="who" style="color:' + colorOfWallet(log.wallet) + '">' + esc(log.playertag) + '</span><span class="ar">▸</span><span class="num">' + fmt(Number(log.damage_done)) + '</span>', { color: colorOfWallet(log.wallet) });
+    return feed('<span class="who" style="color:' + colorOfWallet(log.wallet) + '">' + esc(log.playertag) + '</span>' + rankOfWallet(log.wallet) + '<span class="ar">▸</span><span class="num">' + fmt(Number(log.damage_done)) + '</span>', { color: colorOfWallet(log.wallet) });
   }
   const dmg = Number(log.damage_done), ship = S.ships.get(log.wallet);
   // the same share of the game planet as of the contract's planet; leftovers carry over
@@ -176,7 +176,7 @@ function playHit(log) {
   updateHud();
   const color = colorOfWallet(log.wallet);
   const weapon = ship ? ship.weapon.split('|')[0] : 'Weapon', rarity = (ARMS_BY_NAME[weapon] || {}).rarity || 'Common';
-  feed(rankOfWallet(log.wallet) + '<span class="who" style="color:' + color + '">' + esc(log.playertag) + '</span><span class="ar">▸</span><span class="wchip rar-' + rarity + '">' + esc(weapon) + '</span><span class="ar">▸</span><span class="num">' + fmt(dmg) + '</span>', { color });
+  feed('<span class="who" style="color:' + color + '">' + esc(log.playertag) + '</span>' + rankOfWallet(log.wallet) + '<span class="ar">▸</span><span class="wchip rar-' + rarity + '">' + esc(weapon) + '</span><span class="ar">▸</span><span class="num">' + fmt(dmg) + '</span>', { color });
   if (log.hash_found) {
     feed('<b>' + esc(log.playertag) + '</b><span>found the hash</span><span>· new world incoming</span>', { hash: true });
     hashFound(log);
@@ -282,7 +282,7 @@ function showMe() {
   $('loadout').hidden = !p;
   if (p) {
     const hashes = Ranks.hashesOf(p);
-    $('who').innerHTML = '<small>Playing as' + (hashes ? ' · ' + Ranks.title(hashes) : '') + '</small><b style="color:' + colorOf(p) + '">' + Ranks.badge(hashes) + esc(p.playertag) + '</b>';
+    $('who').innerHTML = '<small>Playing as' + (hashes ? ' · ' + Ranks.title(hashes) : '') + '</small><b style="color:' + colorOf(p) + '">' + esc(p.playertag) + Ranks.badge(hashes) + '</b>';
     const c = TPL.get(Number(p.equipped_crew_template)), w = TPL.get(Number(p.equipped_weapon_template));
     renderDock($('tCrew'), c, 'crew'); renderDock($('tArms'), w, 'arms');
     $('loDmg').textContent = c && w ? damageOf(c.card, c.shine, Number(p.equipped_crew_template)) + damageOf(w.card, w.shine, Number(p.equipped_weapon_template)) : '–';
@@ -321,6 +321,7 @@ async function refreshPlayer() {
   if (S.player) { knownPlayers.set(S.player.wallet, S.player); ensureShip(S.player); updateHud(); }
   showMe();
   refreshAutoFire();
+  refreshMining();
 }
 // Auto attack: fires whenever the trigger has recharged. Offered only while attacks sign by themselves
 // (auto-sign on for attack in this browser), so it never opens the wallet window on its own.
@@ -334,6 +335,24 @@ async function refreshAutoFire() {
   S.autoFire = S.autoSignAttack && saved;
   $('autoFire').checked = S.autoFire;
 }
+// Mining: each attack also earns 1 hashling per block destroyed and runs automated tasks (more CPU).
+// Off, only finding the hash pays. Offered once the deployed contract's attack takes "mine".
+const MINE_KEY = 'hashrush.mine.v1';
+async function refreshMining() {
+  const has = !S.spectating && !!S.player && await chain.attackHasMine();
+  $('mineRow').hidden = !has;
+  let saved = false;
+  try { saved = localStorage.getItem(MINE_KEY) === '1'; } catch { /* off */ }
+  S.mine = has && saved;
+  $('mineOn').checked = S.mine;
+}
+$('mineOn').addEventListener('change', e => {
+  S.mine = e.target.checked;
+  try { localStorage.setItem(MINE_KEY, S.mine ? '1' : '0'); } catch { /* this visit only */ }
+  say($('attackStatus'), S.mine ? 'Mining on: every attack earns 1 hashling per block destroyed. It also runs automated tasks, so each attack uses more CPU.'
+    : 'Mining off: attacks cost less CPU. Only finding the hash pays hashlings.');
+  clearTimeout(S.mineNote); S.mineNote = setTimeout(() => say($('attackStatus'), ''), 8000);
+});
 $('autoFire').addEventListener('change', e => {
   S.autoFire = e.target.checked && S.autoSignAttack;
   S.autoPause = 0;
@@ -380,6 +399,31 @@ $('autoBtn').addEventListener('click', async () => {
   say($('autoStatus'), AUTO.saved.length ? 'On for ' + AUTO.saved.length + ' of ' + chain.AUTO_ACTIONS.length + ' actions.' : 'Everything goes through your wallet.');
 });
 $('autoClose').addEventListener('click', () => $('autoSign').close());
+
+// Destroyed planets: every planet so far, newest first, with when it fell, who found the hash and how
+// much of it was still standing (the finders table; planets from before it existed show no finder)
+const ago = sec => sec < 60 ? 'just now' : sec < 3600 ? Math.floor(sec / 60) + ' min ago' : sec < 86400 ? Math.floor(sec / 3600) + ' h ago' : Math.floor(sec / 86400) + (sec < 172800 ? ' day ago' : ' days ago');
+$('historyBtn').addEventListener('click', async () => {
+  closeMeMenu();
+  $('historyList').innerHTML = '<div class="empty">Loading…</div>';
+  $('history').showModal();
+  try {
+    const [planets, finders] = await Promise.all([chain.getPlanetHistory(), chain.getFinders()]);
+    const byIndex = new Map(finders.map(f => [Number(f.index), f]));
+    const now = Date.now() / 1000;
+    $('historyList').innerHTML = planets.map((p, i) => {
+      const blocks = chain.chainBlocks(Number(p.radius)), gone = Math.min(blocks, Number(p.destroyed_blocks));
+      if (i === 0) return '<div class="pl now"><h3>' + esc(p.planet) + '</h3><span class="ago">Arrived ' + ago(now - chain.chainTime(p.spawn_time)) + '</span>' +
+        '<p><b>' + fmt(gone) + '</b> of ' + fmt(blocks) + ' blocks gone so far</p><div class="bar"><i style="width:' + (100 * gone / blocks).toFixed(1) + '%"></i></div></div>';
+      const fell = chain.chainTime(planets[i - 1].spawn_time), f = byIndex.get(Number(p.index));
+      const left = f ? Number(f.remaining_blocks) : Math.max(0, blocks - gone), standing = blocks ? Math.round(100 * left / blocks) : 0;
+      const known = f && knownPlayers.get(String(f.wallet)), who = f ? '<span class="who" style="color:' + (known ? colorOf(known) : '#ff8a3d') + '">' + esc(f.playertag) + '</span>' + (known ? Ranks.badge(Ranks.hashesOf(known)) : '') : '';
+      return '<div class="pl"><h3>' + esc(p.planet) + '</h3><span class="ago">' + ago(now - fell) + '</span>' +
+        '<p>' + (f ? 'Hash found by ' + who + ' · ' : 'Hash found · ') + '<b>' + standing + '%</b> still standing · ' + fmt(blocks) + ' blocks</p></div>';
+    }).join('') || '<div class="empty">No planets yet.</div>';
+  } catch (err) { $('historyList').innerHTML = '<div class="empty">Could not load the planets right now.</div>'; console.error(err); }
+});
+$('historyClose').addEventListener('click', () => $('history').close());
 $('autoSave').addEventListener('click', async () => {
   const want = autoChosen(), boxes = [...document.querySelectorAll('#autoRows input')];
   boxes.forEach(b => { b.disabled = true; }); $('autoSave').disabled = true;
@@ -414,7 +458,7 @@ $('attackBtn').addEventListener('click', async () => {
   if (cooldownLeft() > 0) return;
   S.firing = true; updateAttack(); say($('attackStatus'), S.autoSignAttack ? '' : 'Confirm the attack in your wallet…');   // auto-signed: no wallet window to confirm in
   try {
-    await chain.attack();
+    await chain.attack(S.mine);
     S.firedAt = Date.now();
     S.cdEnd = Date.now() + (S.cooldown + 1) * 1000;
     S.player = { ...S.player, last_action: new Date().toISOString().slice(0, 19) };   // the cooldown starts now
@@ -665,7 +709,7 @@ function renderFoot() {
 
 // playertag
 const bytes = s => new TextEncoder().encode(s).length;   // the contract counts bytes
-function tagCount() { const n = bytes($('tagInput').value.trim()); $('tagCount').textContent = n + ' / 12'; $('tagSave').disabled = n < 4 || n > 12 || $('tagInput').value.trim() === S.player.playertag; }
+function tagCount() { const n = bytes($('tagInput').value.trim()); $('tagCount').textContent = n + ' / 10'; $('tagSave').disabled = n < 4 || n > 10 || $('tagInput').value.trim() === S.player.playertag; }
 $('tagInput').addEventListener('input', tagCount);
 $('tagSave').addEventListener('click', async () => {
   const tag = $('tagInput').value.trim();

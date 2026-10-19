@@ -7,10 +7,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Michroma&family=Barlow+Condensed:wght@500;600;800&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link rel="icon" href="favicon.svg?v=20261019l" type="image/svg+xml">
-<link rel="icon" href="favicon-32.png?v=20261019l" type="image/png" sizes="32x32">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=20261019l">
-<link rel="stylesheet" href="ui.css?v=20261019l">
+<link rel="icon" href="favicon.svg?v=20261019n" type="image/svg+xml">
+<link rel="icon" href="favicon-32.png?v=20261019n" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=20261019n">
+<link rel="stylesheet" href="ui.css?v=20261019n">
 <style>
   html, body { margin: 0; height: 100%; background: #000; color: var(--ink); overflow: hidden; font: 15px/1.5 var(--text); }
   canvas#c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; opacity: 0; transition: opacity 1s; }
@@ -147,7 +147,32 @@
   @media (prefers-reduced-motion: reduce) { .fire .burst, .fire .burst::after, .fire.flash .btn, .btn.attack .cd { animation: none !important; } }
   .loadout .status { margin: 0; max-width: 380px; font-size: 14px; }
   /* auto attack: sits just above the trigger, only when attacks sign by themselves */
-  .plate .autofire { position: absolute; right: 0; bottom: calc(100% + 8px); white-space: nowrap; text-shadow: 0 1px 8px #000; }
+  /* switches above the damage and trigger: mining, auto attack */
+  .plate .pswitch { position: absolute; right: 0; bottom: calc(100% + 8px); display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px 16px; white-space: nowrap; text-shadow: 0 1px 8px #000; }
+  .plate .pswitch .cpu { display: none; margin-left: 6px; color: var(--a-hi); letter-spacing: 0.12em; }
+  .plate .pswitch .mining:has(input:checked) .cpu { display: inline; }
+  /* destroyed planets: a list, newest first */
+  dialog.history { width: min(560px, calc(100vw - 32px)); max-width: none; max-height: min(720px, calc(100dvh - 32px)); padding: 0; border: 1px solid var(--line); background: var(--glass); color: var(--ink); box-shadow: 0 40px 100px #000d; }
+  dialog.history::backdrop { background: #000b; backdrop-filter: blur(4px); }
+  .history .head { display: flex; justify-content: space-between; align-items: flex-start; padding: 24px 26px 10px; }
+  .history h2 { font: 400 22px var(--display); margin: 8px 0 0; }
+  .history .list { padding: 0 26px 22px; overflow-y: auto; max-height: calc(min(720px, 100dvh - 32px) - 100px); }
+  .history .pl { display: grid; grid-template-columns: 1fr auto; gap: 2px 16px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+  .history .pl h3 { margin: 0; font: 400 18px var(--display); }
+  .history .pl .ago { font: 600 12px var(--label); letter-spacing: 0.2em; text-transform: uppercase; color: var(--mute); text-align: right; align-self: center; }
+  .history .pl p { grid-column: 1 / -1; margin: 0; font-size: 14px; color: #c9c1b3; }
+  .history .pl p b { color: var(--ink); font-weight: 600; }
+  .history .pl .who { font-weight: 600; }
+  .history .pl .rank { width: 16px; height: 16px; vertical-align: -3px; margin-left: 4px; }
+  .history .pl .bar { grid-column: 1 / -1; height: 3px; margin-top: 6px; background: #ffffff1c; }
+  .history .pl .bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--a-lo), var(--a-hi)); }
+  .history .pl.now h3::after { content: 'Now mining'; margin-left: 10px; font: 600 11px var(--label); letter-spacing: 0.3em; text-transform: uppercase; color: var(--a); vertical-align: 3px; }
+  .history .empty { padding: 20px 0; color: var(--mute); }
+  @media (max-width: 640px) and (orientation: portrait) {
+    dialog.history { width: 100vw; max-height: 100dvh; height: 100dvh; margin: 0; border: 0; }
+    .history .head { padding: calc(14px + var(--sat)) 16px 8px; }
+    .history .list { padding: 0 16px calc(16px + var(--sab)); max-height: calc(100dvh - 90px); }
+  }
   .loadout small { display: block; font: 600 11px var(--label); letter-spacing: 0.3em; text-transform: uppercase; color: var(--mute); }
   .loadout b { font-weight: 500; }
 
@@ -178,11 +203,10 @@
   #labels { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
   .tag { position: absolute; left: 0; top: 0; white-space: nowrap; font: 600 12px var(--label); letter-spacing: 0.18em; text-transform: uppercase; color: #e8e2d6d9; text-shadow: 0 1px 6px #000; transition: opacity 0.3s; }
   .tag i { display: inline-block; width: 10px; height: 2px; margin-right: 6px; vertical-align: 4px; }
-  /* ranks (ranks.js): a small badge before the name */
-  .tag .rank { width: 16px; height: 16px; margin-right: 5px; vertical-align: -4px; filter: drop-shadow(0 1px 3px #000); }
-  .tag .rank:empty { display: none; }
-  .feed .row .rank { width: 17px; height: 17px; flex: none; margin-right: -2px; }
-  .who b .rank { width: 20px; height: 20px; margin-right: 7px; vertical-align: -3px; }
+  /* ranks (ranks.js): a small badge right after the name */
+  .tag .rank { width: 16px; height: 16px; margin-left: 5px; vertical-align: -4px; filter: drop-shadow(0 1px 3px #000); }
+  .feed .row .rank { width: 17px; height: 17px; flex: none; margin-left: -3px; }
+  .who b .rank { width: 20px; height: 20px; margin-left: 7px; vertical-align: -3px; }
   .tag.mine { color: #fff; }
   .tag.firing { color: #fff; }
   .tag.firing::after { content: attr(data-weapon); margin-left: 8px; color: var(--a); letter-spacing: 0.1em; }
@@ -438,6 +462,7 @@
     <div class="me-menu" id="meMenu" hidden>
       <button class="link" id="hangarBtn" type="button" hidden>Hangar</button>
       <button class="link" id="autoBtn" type="button" hidden>Auto-sign</button>
+      <button class="link" id="historyBtn" type="button">Destroyed planets</button>
       <div class="menu-look"><small>Look</small>
         <div class="seg" role="group" aria-label="Look"><button type="button" data-look="vox">Voxels</button><button type="button" data-look="sdf">Distance field</button></div>
         <button class="link" id="lookTune" type="button" aria-expanded="false" aria-controls="lookPanel">Tune the look</button>
@@ -461,7 +486,10 @@
     <div class="plate">
       <div class="n"><small>Damage</small><b id="loDmg">–</b></div>
       <div class="fire" id="fireWrap"><span class="burst" aria-hidden="true"></span><button class="btn attack" id="attackBtn" type="button"><span class="cd" id="cdFill"></span><span class="lbl" id="attackLbl">Attack</span></button></div>
-      <label class="switch autofire" id="autoFireRow" hidden><input type="checkbox" id="autoFire">Auto attack</label>
+      <div class="pswitch">
+        <label class="switch mining" id="mineRow" hidden title="Mining: every attack earns 1 hashling per block destroyed. It also runs automated tasks, so each attack uses more CPU."><input type="checkbox" id="mineOn">Mine hashlings<span class="cpu">· more CPU</span></label>
+        <label class="switch autofire" id="autoFireRow" hidden><input type="checkbox" id="autoFire">Auto attack</label>
+      </div>
     </div>
   </div>
   <div class="status" id="attackStatus" role="status" aria-live="polite"></div>
@@ -474,6 +502,11 @@
 </div>
 <div class="busy" id="busy">Loading the current planet…</div>
 <div class="catchup" id="catchup" role="status" hidden>Catching up…</div>
+
+<dialog class="history" id="history" aria-labelledby="historyTitle">
+  <div class="head"><div><div class="eyebrow">The hash rush so far</div><h2 id="historyTitle">Destroyed planets</h2></div><button class="link" id="historyClose" type="button">Close</button></div>
+  <div class="list" id="historyList"></div>
+</dialog>
 
 <dialog class="auto" id="autoSign" aria-labelledby="autoTitle">
   <div class="head"><div><div class="eyebrow">Wallet</div><h2 id="autoTitle">Auto-sign</h2></div><button class="link" id="autoClose" type="button">Close</button></div>
@@ -519,8 +552,8 @@
     </section>
     <section class="hg-profile" id="hgProfile" hidden>
       <label for="tagInput">Playertag</label>
-      <input id="tagInput" maxlength="12" autocomplete="off" spellcheck="false">
-      <div class="count"><span>4 to 12 characters</span><span id="tagCount">0 / 12</span></div>
+      <input id="tagInput" maxlength="10" autocomplete="off" spellcheck="false">
+      <div class="count"><span>4 to 10 characters</span><span id="tagCount">0 / 10</span></div>
       <button class="btn" id="tagSave" type="button">Save playertag</button>
       <div class="status" id="tagStatus" role="status"></div>
     </section>
@@ -532,14 +565,14 @@
   </div>
 </dialog>
 
-<script src="planets-data.js?v=20261019l"></script>
-<script src="space.js?v=20261019l"></script>
-<script src="weapons-lib.js?v=20261019l"></script>
-<script src="aw-data.js?v=20261019l"></script>
-<script src="aw-designs.js?v=20261019l"></script>
-<script src="sdf.js?v=20261019l"></script>
-<script src="hero-gl.js?v=20261019l"></script>
-<script src="ranks.js?v=20261019l"></script>
+<script src="planets-data.js?v=20261019n"></script>
+<script src="space.js?v=20261019n"></script>
+<script src="weapons-lib.js?v=20261019n"></script>
+<script src="aw-data.js?v=20261019n"></script>
+<script src="aw-designs.js?v=20261019n"></script>
+<script src="sdf.js?v=20261019n"></script>
+<script src="hero-gl.js?v=20261019n"></script>
+<script src="ranks.js?v=20261019n"></script>
 <script>
 'use strict';
 /*
@@ -1849,7 +1882,7 @@ function syncLabels() {
       x.label = document.createElement('div');
       x.label.className = 'tag' + (x.me ? ' mine' : '');
       x.label.dataset.id = x.id;
-      x.label.innerHTML = '<i></i><b></b><span></span>';
+      x.label.innerHTML = '<i></i><span></span><b></b>';
       x.label.firstChild.style.background = x.accent;
       elLabels.appendChild(x.label);
     }
@@ -2414,6 +2447,6 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 </script>
-<script type="module" src="play.js?v=20261019l"></script>
+<script type="module" src="play.js?v=20261019n"></script>
 </body>
 </html>

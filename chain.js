@@ -206,9 +206,29 @@ export function setequip(weaponAssetId, crewAssetId) {
 }
 
 /** Attacks the current planet with the equipped crew and weapon. */
-export function attack() {
+export function attack(mine = false) {
   const actor = String(current.actor), permission = String(current.permission);
-  return transact([{ account: CONTRACT, name: 'attack', authorization: [{ actor, permission }], data: { wallet: actor } }]);
+  return attackHasMine().then(has => transact([{ account: CONTRACT, name: 'attack', authorization: [{ actor, permission }],
+    data: has ? { wallet: actor, mine: !!mine } : { wallet: actor } }]));
+}
+
+/** Whether the deployed contract's attack takes "mine" (mining: hashlings per block, automated tasks).
+ *  Read once from the contract's ABI, so the site works before and after that version is deployed. */
+let mineCheck = null;
+export function attackHasMine() {
+  mineCheck ??= rpc('/v1/chain/get_abi', { account_name: CONTRACT })
+    .then(r => !!r.abi?.structs?.find(s => s.name === 'attack')?.fields?.some(f => f.name === 'mine'))
+    .catch(() => { mineCheck = null; return false; });
+  return mineCheck;
+}
+
+/** The planets so far, newest first: index, planet, radius, spawn_time, destroyed_blocks. */
+export function getPlanetHistory(limit = 60) {
+  return rows('track', { reverse: true, limit });
+}
+/** Who found the hash of each planet (newest first); empty until the contract has the finders table. */
+export function getFinders(limit = 60) {
+  return rows('finders', { reverse: true, limit }).catch(() => []);
 }
 
 /** Auto-sign (WharfKit session keys): the chosen actions sign in this browser without the wallet

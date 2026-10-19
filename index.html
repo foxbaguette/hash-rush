@@ -7,10 +7,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Michroma&family=Barlow+Condensed:wght@600;800&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
-<link rel="icon" href="favicon.svg?v=20261019l" type="image/svg+xml">
-<link rel="icon" href="favicon-32.png?v=20261019l" type="image/png" sizes="32x32">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=20261019l">
-<link rel="stylesheet" href="ui.css?v=20261019l">
+<link rel="icon" href="favicon.svg?v=20261019n" type="image/svg+xml">
+<link rel="icon" href="favicon-32.png?v=20261019n" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=20261019n">
+<link rel="stylesheet" href="ui.css?v=20261019n">
 <style>
   * { box-sizing: border-box; }
   html, body { margin: 0; background: #000; color: var(--ink); font: 15px/1.55 Barlow, system-ui, sans-serif; }
@@ -56,20 +56,20 @@
       <h2 id="suTitle">Choose your playertag</h2>
       <p>This is the name every other crew will see next to your ship. You can change it later.</p>
       <label for="tag">Playertag</label>
-      <input id="tag" name="tag" maxlength="12" autocomplete="off" spellcheck="false" required>
-      <div class="count"><span id="tagHint">4 to 12 characters</span><span id="tagCount">0 / 12</span></div>
+      <input id="tag" name="tag" maxlength="10" autocomplete="off" spellcheck="false" required>
+      <div class="count"><span id="tagHint">4 to 10 characters</span><span id="tagCount">0 / 10</span></div>
       <div class="row"><button class="btn" id="suGo" type="submit">Sign up</button><button class="link" id="suCancel" type="button">Cancel</button></div>
       <div class="status" id="suStatus" role="status" aria-live="polite"></div>
     </form>
   </dialog>
 
-<script src="planets-data.js?v=20261019l"></script>
-<script src="space.js?v=20261019l"></script>
-<script src="weapons-lib.js?v=20261019l"></script>
-<script src="aw-data.js?v=20261019l"></script>
-<script src="aw-designs.js?v=20261019l"></script>
-<script src="hero-gl.js?v=20261019l"></script>
-<script src="ranks.js?v=20261019l"></script>
+<script src="planets-data.js?v=20261019n"></script>
+<script src="space.js?v=20261019n"></script>
+<script src="weapons-lib.js?v=20261019n"></script>
+<script src="aw-data.js?v=20261019n"></script>
+<script src="aw-designs.js?v=20261019n"></script>
+<script src="hero-gl.js?v=20261019n"></script>
+<script src="ranks.js?v=20261019n"></script>
 <script>
 'use strict';
 const H = HeroGL;
@@ -110,7 +110,7 @@ H.view(document.getElementById('hero'), t => { P.yaw = 2.068 + 0.15 * Math.sin(t
 <script type="module">
 // Join the rush: connect a wallet (Anchor or WAX Cloud Wallet); new players pick a playertag
 // and sign up on planetmining, then everyone goes straight to the current planet
-import * as chain from './chain.js?v=20261019l';
+import * as chain from './chain.js?v=20261019n';
 const $ = id => document.getElementById(id);
 const join = $('join'), status = $('status'), dlg = $('signup'), tag = $('tag'), go = $('suGo'), suStatus = $('suStatus');
 const say = (el, text, err = false) => { el.textContent = text; el.classList.toggle('err', err); };
@@ -135,7 +135,7 @@ join.addEventListener('click', async () => {
 
 function updateCount() {
   const n = bytes(tag.value.trim());
-  $('tagCount').textContent = n + ' / 12';
+  $('tagCount').textContent = n + ' / 10';
   go.disabled = n < 4 || n > 12;
 }
 tag.addEventListener('input', updateCount);
@@ -144,7 +144,7 @@ $('suCancel').addEventListener('click', () => dlg.close());
 $('suForm').addEventListener('submit', async e => {
   e.preventDefault();
   const playertag = tag.value.trim(), n = bytes(playertag);
-  if (n < 4 || n > 12) { say(suStatus, 'Your playertag needs 4 to 12 characters.', true); return; }
+  if (n < 4 || n > 10) { say(suStatus, 'Your playertag needs 4 to 10 characters.', true); return; }
   go.disabled = true; tag.disabled = true; say(suStatus, 'Confirm the sign-up in your wallet…');
   try {
     await chain.signup(playertag);
