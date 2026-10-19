@@ -30,6 +30,8 @@ const damageOf = (card, s, id) => S.damage.get(id) ?? s.templates.map(t => S.dam
 const crewOf = t => t && t.card.kind === 'crew' ? { name: t.card.name, rarity: t.card.rarity, element: t.card.element, variant: t.card.variant, shine: t.shine.shine } : DEFAULT_CREW;
 const weaponOf = t => t && t.card.kind === 'arms' ? t.card.name + '|' + t.shine.shine : DEFAULT_WEAPON;
 const colorOf = p => /^[0-9a-f]{6}$/i.test(p.color || '') ? '#' + p.color : '#ff8a3d';
+// card art from the AtomicHub resizer. It refuses requests that name another site as the referrer
+// (hotlink protection: our live address gets a 403), so the images are loaded without one
 const thumb = img => 'https://resizer.atomichub.io/images/v1/preview?ipfs=' + img + '&size=370';
 
 // ---------------------------------------------------------------- state
@@ -266,7 +268,7 @@ function renderDock(el, t, kind) {
   }
   el.style.setProperty('--rc', RARITY_COL[t.card.rarity] || '#ffffff55');
   const short = t.shine.shine === 'XDimension' ? 'XDim' : t.shine.shine;
-  el.innerHTML = '<img alt="" src="' + thumb(t.card.img) + '"><span class="shb" style="background:' + SHINE_COL[t.shine.shine] + '">' + short + '</span>' +
+  el.innerHTML = '<img alt="" referrerpolicy="no-referrer" src="' + thumb(t.card.img) + '"><span class="shb" style="background:' + SHINE_COL[t.shine.shine] + '">' + short + '</span>' +
     '<div class="t"><span>' + t.card.rarity + ' ' + what + '</span><b>' + esc(t.card.name) + '</b></div>';
   el.setAttribute('aria-label', 'Your ' + what + ': ' + t.card.name + ', ' + t.card.rarity + ', ' + t.shine.shine + '. Open the hangar');
 }
@@ -445,7 +447,7 @@ function renderList() {
     const n = cardOwned(c), b = document.createElement('button'), on = cur && cur.card === c;
     b.type = 'button'; b.className = 'item' + (n ? '' : ' dim'); b.setAttribute('role', 'listitem');
     if (H.sel[kind] === c) b.setAttribute('aria-current', 'true');
-    b.innerHTML = '<img alt="" loading="lazy" src="' + thumb(c.img) + '"><span><span class="nm">' + esc(c.name) + '</span><span class="rr rar-' + c.rarity + '">' + c.rarity + ' · ' + esc(kind === 'crew' ? c.element : c.cls) + '</span></span>' +
+    b.innerHTML = '<img alt="" loading="lazy" referrerpolicy="no-referrer" src="' + thumb(c.img) + '"><span><span class="nm">' + esc(c.name) + '</span><span class="rr rar-' + c.rarity + '">' + c.rarity + ' · ' + esc(kind === 'crew' ? c.element : c.cls) + '</span></span>' +
       '<span class="own' + (n ? ' yes' : '') + '">' + (on ? (H.pending[kind] ? 'Selected' : 'Equipped') : S.owned ? (n ? n + ' owned' : 'Not owned') : '') + '</span>';
     b.addEventListener('click', () => { H.sel[kind] = c; H.shine[kind] = null; H.picked[kind] = true; renderList(); renderDetail(); $('hgCards').classList.add('detail-open'); });
     list.appendChild(b);
