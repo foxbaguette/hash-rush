@@ -1,8 +1,8 @@
 // The Hash Rush, live screen: the planet being mined on planetmining, every crew that attacked in
 // the last 30 minutes in orbit, the attack log replayed as it comes in, and the hangar where a
 // player changes their playertag and equips crew and weapon.
-import * as chain from './chain.js?v=20261020d';
-import * as gains from './gains.js?v=20261020d';
+import * as chain from './chain.js?v=20261020e';
+import * as gains from './gains.js?v=20261020e';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
@@ -566,8 +566,9 @@ $('attackBtn').addEventListener('click', async () => {
     S.cdEnd = Date.now() + (S.cooldown + 1) * 1000;
     S.player = { ...S.player, last_action: new Date().toISOString().slice(0, 19) };   // the cooldown starts now
     say($('attackStatus'), '');   // the shots on screen say it
-    // your hit is in the log now: read it right away and play it
-    for (let i = 0; i < 4; i++) { await new Promise(r => setTimeout(r, 700)); await pollNow(); }
+    // your hit is in the log now: read it right away and play it (not in a background tab: its slowed
+    // timers would hold up the next auto attack for minutes, and the catch-up on return shows it anyway)
+    for (let i = 0; i < 4 && !document.hidden; i++) { await new Promise(r => setTimeout(r, 700)); await pollNow(); }
   } catch (err) {
     const wait = /wait (\d+) more second/i.exec(String(err?.message ?? err));
     if (wait && S.player) { chainCooldown(Number(wait[1])); say($('attackStatus'), ''); }   // not an error: still recharging on the chain
@@ -613,15 +614,21 @@ function updateAttack() {
   }
   wrap.classList.toggle('charged', !cooling && !S.firing && S.attackReady && !S.spectating);
   wasCooling = cooling;
-  // auto attack: recharged, equipped, signed in, not paused after an error, and only while you are
-  // looking at the game (a visible, focused tab; never in the background)
-  if (S.autoFire && S.autoSignAttack && !cooling && !S.firing && S.attackReady && !S.spectating && chain.account() && Date.now() > (S.autoPause || 0)
-      && document.visibilityState === 'visible' && document.hasFocus()) {
+  // auto attack: recharged, equipped, signed in and not paused after an error. It keeps going with the
+  // tab unfocused or in the background (an idle miner); coming back, the catch-up shows the planet as it is
+  if (S.autoFire && S.autoSignAttack && !cooling && !S.firing && S.attackReady && !S.spectating && chain.account() && Date.now() > (S.autoPause || 0)) {
     S.autoPause = Date.now() + 3000;
     btn.click();
   }
 }
 setInterval(updateAttack, 250);
+// A background tab slows its timers to one a second, and after a few minutes to one a minute, which would
+// leave auto attack waiting long after the recharge. A worker's timer is not slowed like that, so it ticks
+// here every second; its messages reach the page even while the tab is hidden.
+try {
+  const ticker = new Worker(URL.createObjectURL(new Blob(['setInterval(() => postMessage(0), 1000);'], { type: 'text/javascript' })));
+  ticker.onmessage = () => { if (document.hidden) updateAttack(); };
+} catch { /* no workers: the page's own timer above still runs */ }
 // the recharge bar, drawn every frame; within one recharge it only ever moves forward (a later time
 // from the chain makes it wait a moment instead of pulling back)
 let cdShown = 0, cdOn = false;
