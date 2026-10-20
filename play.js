@@ -1,8 +1,8 @@
 // The Hash Rush, live screen: the planet being mined on planetmining, every crew that attacked in
 // the last 30 minutes in orbit, the attack log replayed as it comes in, and the hangar where a
 // player changes their playertag and equips crew and weapon.
-import * as chain from './chain.js?v=20261020g';
-import * as gains from './gains.js?v=20261020g';
+import * as chain from './chain.js?v=20261020h';
+import * as gains from './gains.js?v=20261020h';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
@@ -369,6 +369,13 @@ $('mineOn').addEventListener('change', e => {
 $('mineWhy').addEventListener('click', e => { e.preventDefault(); $('mineInfo').showModal(); });
 $('mineInfoClose').addEventListener('click', () => $('mineInfo').close());
 $('mineInfoCpu').addEventListener('click', () => { $('mineInfo').close(); $('cpuBtn').click(); });
+// auto attack stopped itself after an error: start it again, or leave it off
+$('afRestart').addEventListener('click', () => {
+  $('autoOff').close();
+  $('autoFire').checked = true; $('autoFire').dispatchEvent(new Event('change'));
+  say($('attackStatus'), '');
+});
+$('afKeep').addEventListener('click', () => $('autoOff').close());
 $('autoFire').addEventListener('change', e => {
   S.autoFire = e.target.checked && S.autoSignAttack;
   S.autoPause = 0;
@@ -569,7 +576,8 @@ $('attackBtn').addEventListener('click', async () => {
   if (cooldownLeft() > 0) return;
   S.firing = true; updateAttack(); say($('attackStatus'), S.autoSignAttack ? '' : 'Confirm the attack in your wallet…');   // auto-signed: no wallet window to confirm in
   try {
-    await chain.attack(S.mine);
+    // never wait forever: a phone waking up can leave a request hanging, and the button would stay on "Firing…"
+    await Promise.race([chain.attack(S.mine), new Promise((_, no) => setTimeout(() => no(new Error('The network timed out.')), 45000))]);
     S.firedAt = Date.now();
     S.firedMine = S.mine;
     S.cdEnd = Date.now() + (S.cooldown + 1) * 1000;
@@ -581,17 +589,28 @@ $('attackBtn').addEventListener('click', async () => {
   } catch (err) {
     const wait = /wait (\d+) more second/i.exec(String(err?.message ?? err));
     if (wait && S.player) { chainCooldown(Number(wait[1])); say($('attackStatus'), ''); }   // not an error: still recharging on the chain
-    else {
+    else if (isNetworkError(err)) {
+      // the connection dropped (often a phone waking the tab): not the attack's fault, so auto attack stays on
+      // and tries again in a little while; if the attack did go through, the chain answers "wait N seconds"
+      S.autoPause = Date.now() + 20000;
+      say($('attackStatus'), 'Lost the connection for a moment.' + (S.autoFire ? ' Auto attack tries again shortly.' : ' Try again.'));
+      clearTimeout(S.netNote); S.netNote = setTimeout(() => { if (/^Lost the connection/.test($('attackStatus').textContent)) say($('attackStatus'), ''); }, 25000);
+    } else {
       // a failed attack switches auto attack off, so it never keeps firing into the same error
       const wasAuto = S.autoFire;
       if (wasAuto) {
         S.autoFire = false; $('autoFire').checked = false;
         try { localStorage.setItem(AUTOFIRE_KEY, '0'); } catch { /* this visit only */ }
+        $('afWhy').textContent = chain.friendlyError(err);   // say so plainly, with a one-tap way back on
+        if (!$('autoOff').open) $('autoOff').showModal();
       }
       say($('attackStatus'), chain.friendlyError(err) + (wasAuto ? ' Auto attack is off.' : ''), true);
     }
   } finally { S.firing = false; updateAttack(); }
 });
+
+// a dropped or timed-out connection, as fetch and the wallets word it in different browsers
+const isNetworkError = err => /failed to fetch|networkerror|network error|load failed|network request failed|timed out|timeout|aborted|no wax node/i.test(String(err?.message ?? err));
 
 // cooldown on the button: a filling stripe and a countdown, then a burst when it is ready again
 // the end of the recharge: from the chain's time of your last attack, or, right after you fired, from

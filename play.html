@@ -7,10 +7,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Michroma&family=Barlow+Condensed:wght@500;600;800&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link rel="icon" href="favicon.svg?v=20261020g" type="image/svg+xml">
-<link rel="icon" href="favicon-32.png?v=20261020g" type="image/png" sizes="32x32">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=20261020g">
-<link rel="stylesheet" href="ui.css?v=20261020g">
+<link rel="icon" href="favicon.svg?v=20261020h" type="image/svg+xml">
+<link rel="icon" href="favicon-32.png?v=20261020h" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=20261020h">
+<link rel="stylesheet" href="ui.css?v=20261020h">
 <style>
   html, body { margin: 0; height: 100%; background: #000; color: var(--ink); overflow: hidden; font: 15px/1.5 var(--text); }
   canvas#c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; opacity: 0; transition: opacity 1s; }
@@ -157,6 +157,8 @@
   .mine-info ul { margin: 0 0 14px; padding-left: 18px; color: #cfc6b6; font-size: 14px; line-height: 1.7; }
   .mine-info li::marker { color: var(--a); }
   .mine-info .cpu-foot { margin-top: 6px; }
+  .mine-info .af-why { padding: 10px 12px; border-left: 2px solid #ff5a3d; background: #ff5a3d14; color: var(--ink); font-size: 14px; }   /* the error, as the chain or wallet gave it */
+  .mine-info .cpu-foot { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
   /* destroyed planets: a list, newest first */
   dialog.history { width: min(560px, calc(100vw - 32px)); max-width: none; max-height: min(720px, calc(100dvh - 32px)); padding: 0; border: 1px solid var(--line); background: var(--glass); color: var(--ink); box-shadow: 0 40px 100px #000d; }
   dialog.history[open] { display: flex; flex-direction: column; overflow: hidden; }   /* only the list scrolls */
@@ -564,6 +566,16 @@
   </div>
 </dialog>
 
+<dialog class="history cpu mine-info" id="autoOff" aria-labelledby="afTitle">
+  <div class="head"><div><div class="eyebrow">Auto attack</div><h2 id="afTitle">Auto attack stopped</h2></div></div>
+  <div class="list">
+    <p>An attack ran into an error, so auto attack switched itself off instead of firing into the same error again and again.</p>
+    <p class="af-why" id="afWhy"></p>
+    <p>If the problem is sorted (for example, you have CPU again), start it again.</p>
+    <div class="cpu-foot"><button class="btn small" id="afRestart" type="button">Restart auto attack</button><button class="link" id="afKeep" type="button">Keep it off</button></div>
+  </div>
+</dialog>
+
 <dialog class="history cpu mine-info" id="mineInfo" aria-labelledby="mineInfoTitle">
   <div class="head"><div><div class="eyebrow">Mine hashlings</div><h2 id="mineInfoTitle">Why more CPU</h2></div><button class="link" id="mineInfoClose" type="button">Close</button></div>
   <div class="list">
@@ -654,16 +666,16 @@
   </div>
 </dialog>
 
-<script src="planets-data.js?v=20261020g"></script>
-<script src="space.js?v=20261020g"></script>
-<script src="weapons-lib.js?v=20261020g"></script>
-<script src="aw-data.js?v=20261020g"></script>
-<script src="aw-designs.js?v=20261020g"></script>
-<script src="shots.js?v=20261020g"></script>
-<script src="sdf.js?v=20261020g"></script>
-<script src="ships-sdf.js?v=20261020g"></script>
-<script src="hero-gl.js?v=20261020g"></script>
-<script src="ranks.js?v=20261020g"></script>
+<script src="planets-data.js?v=20261020h"></script>
+<script src="space.js?v=20261020h"></script>
+<script src="weapons-lib.js?v=20261020h"></script>
+<script src="aw-data.js?v=20261020h"></script>
+<script src="aw-designs.js?v=20261020h"></script>
+<script src="shots.js?v=20261020h"></script>
+<script src="sdf.js?v=20261020h"></script>
+<script src="ships-sdf.js?v=20261020h"></script>
+<script src="hero-gl.js?v=20261020h"></script>
+<script src="ranks.js?v=20261020h"></script>
 <script>
 'use strict';
 /*
@@ -2601,6 +2613,6 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 </script>
-<script type="module" src="play.js?v=20261020g"></script>
+<script type="module" src="play.js?v=20261020h"></script>
 </body>
 </html>

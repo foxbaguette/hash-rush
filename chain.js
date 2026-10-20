@@ -210,10 +210,12 @@ export function setequip(weaponAssetId, crewAssetId) {
 }
 
 /** Attacks the current planet with the equipped crew and weapon. */
-export function attack(mine = false) {
+export async function attack(mine = false) {
   const actor = String(current.actor), permission = String(current.permission);
-  return attackHasMine().then(has => transact([{ account: CONTRACT, name: 'attack', authorization: [{ actor, permission }],
-    data: has ? { wallet: actor, mine: !!mine } : { wallet: actor } }]));
+  const has = await attackHasMine();
+  if (mineCheck === null) throw new Error('Failed to fetch');   // the check itself failed (offline): don't guess the action's shape
+  return transact([{ account: CONTRACT, name: 'attack', authorization: [{ actor, permission }],
+    data: has ? { wallet: actor, mine: !!mine } : { wallet: actor } }]);
 }
 
 // ---------------------------------------------------------------- CPU and the eosio powerup
