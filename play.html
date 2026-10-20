@@ -7,10 +7,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Michroma&family=Barlow+Condensed:wght@500;600;800&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link rel="icon" href="favicon.svg?v=20261020j" type="image/svg+xml">
-<link rel="icon" href="favicon-32.png?v=20261020j" type="image/png" sizes="32x32">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=20261020j">
-<link rel="stylesheet" href="ui.css?v=20261020j">
+<link rel="icon" href="favicon.svg?v=20261020k" type="image/svg+xml">
+<link rel="icon" href="favicon-32.png?v=20261020k" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=20261020k">
+<link rel="stylesheet" href="ui.css?v=20261020k">
 <style>
   html, body { margin: 0; height: 100%; background: #000; color: var(--ink); overflow: hidden; font: 15px/1.5 var(--text); }
   canvas#c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; opacity: 0; transition: opacity 1s; }
@@ -223,11 +223,28 @@
   .cpu-foot { display: flex; align-items: center; gap: 14px; margin-top: 14px; }
   .cpu-foot .status { flex: 1; margin: 0; font-size: 13px; color: var(--mute); }
   /* the hashling market */
-  .mk-pool { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 6px; }
-  .mk-pool small { display: block; font: 600 11px var(--label); letter-spacing: 0.3em; text-transform: uppercase; color: var(--mute); }
-  .mk-pool b { display: inline-block; margin-right: 6px; font: 400 22px var(--display); font-weight: 400; color: var(--ink); }
-  .mk-pool span { color: var(--mute); font-size: 14px; }
-  .market .cpu-in .link { margin-left: auto; }
+  /* the hashling market: an exchange card, what you spend on top, what you get below */
+  .mk-pay, .mk-get { padding: 12px 14px; background: #ffffff08; border: 1px solid #ffffff14; }
+  .mk-pay small, .mk-get small { display: flex; justify-content: space-between; gap: 10px; font: 600 10px var(--label); letter-spacing: 0.3em; text-transform: uppercase; color: var(--mute); }
+  .mk-pay small b, .mk-get small b { color: #cfc6b6; font-weight: 600; letter-spacing: 0.12em; }
+  .mk-field { display: flex; align-items: center; gap: 10px; padding-top: 6px; }
+  .mk-field input { flex: 1; min-width: 0; background: none; border: 0; outline: none; color: var(--ink); font: 400 24px var(--display); padding: 0; -moz-appearance: textfield; }
+  .mk-field input::-webkit-inner-spin-button, .mk-field input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+  .mk-field .unit { display: flex; align-items: center; gap: 6px; font: 600 12px var(--label); letter-spacing: 0.2em; text-transform: uppercase; color: #cfc6b6; white-space: nowrap; }
+  .mk-field .unit svg { width: 18px; height: 18px; }
+  .mk-chips { display: flex; gap: 6px; margin-top: 8px; }
+  .mk-chips button { flex: 1; background: #ffffff0a; border: 1px solid #ffffff1a; color: #cfc6b6; font: 600 11px var(--label); letter-spacing: 0.18em; text-transform: uppercase; padding: 7px 0; cursor: pointer; }
+  .mk-chips button:hover, .mk-chips button:focus-visible { border-color: var(--a); color: var(--ink); outline: none; }
+  .mk-flip { display: grid; place-items: center; height: 0; position: relative; z-index: 1; }
+  .mk-flip span { width: 34px; height: 34px; display: grid; place-items: center; background: #0b0908; border: 1px solid #ffffff24; color: var(--a); font-size: 16px; }
+  .mk-out { display: flex; align-items: center; gap: 8px; margin-top: 6px; font: 400 28px var(--display); color: #7fe3ff; }
+  .mk-out svg { width: 22px; height: 22px; }
+  .mk-kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin-top: 12px; font-size: 13px; color: #b8b0a2; }
+  .mk-kv b { color: var(--ink); font-weight: 600; text-align: right; }
+  .mk-kv b.warn { color: #ffb340; }
+  .mk-go { width: 100%; margin-top: 16px; }
+  .market .status { margin: 10px 0 0; min-height: 1.4em; }
+  .market .cpu-note { margin-top: 4px; }
   @media (max-width: 640px) and (orientation: portrait) {
     dialog.history { width: 100vw; max-height: 100dvh; height: 100dvh; margin: 0; border: 0; }
     .history .head { padding: calc(14px + var(--sat)) 16px 8px; }
@@ -580,18 +597,25 @@
 <dialog class="history cpu market" id="market" aria-labelledby="marketTitle">
   <div class="head"><div><div class="eyebrow">Hashlings for shards</div><h2 id="marketTitle">Hashling market</h2></div><button class="link" id="marketClose" type="button">Close</button></div>
   <div class="list">
-    <div class="mk-pool">
-      <div><small>In the pool</small><b id="mkPoolH">–</b><span>hashlings</span></div>
-      <div><small>&nbsp;</small><b id="mkPoolS">–</b><span>shards</span></div>
+    <div class="mk-pay">
+      <small><span>You spend</span><span>You have <b id="mkHave">–</b></span></small>
+      <div class="mk-field"><input id="mkIn" type="number" min="1" step="1" value="100" inputmode="numeric" aria-label="Hashlings to spend"><span class="unit"><span id="mkHlIcon"></span>Hashlings</span></div>
+      <div class="mk-chips"><button type="button" data-pct="0.1">10%</button><button type="button" data-pct="0.25">25%</button><button type="button" data-pct="0.5">50%</button><button type="button" id="mkMax">Max</button></div>
     </div>
+    <div class="mk-flip" aria-hidden="true"><span>↓</span></div>
+    <div class="mk-get">
+      <small><span>You get about</span><span>at least <b id="mkMin">–</b></span></small>
+      <b class="mk-out"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1 19 9 12 23 5 9z" fill="#2a9fd0"/><path d="M12 1 19 9H5z" fill="#c8f6ff"/><path d="M12 23 5 9h7z" fill="#5fd0f0"/></svg><span id="mkOut">–</span></b>
+    </div>
+    <div class="mk-kv">
+      <span>Rate</span><b><span id="mkRate">–</span> hashlings per shard</b>
+      <span>Price impact</span><b id="mkImpact">–</b>
+      <span>In the pool now</span><b><span id="mkPoolH">–</span> hashlings · <span id="mkPoolS">–</span> shards</b>
+      <span>Your shards</span><b id="mkHaveS">–</b>
+    </div>
+    <button class="btn mk-go" id="mkSwap" type="button">Swap</button>
+    <p class="status" id="mkStatus" role="status"></p>
     <p class="cpu-note" id="mkInfo"></p>
-    <div class="cpu-up">
-      <div class="eyebrow">Swap</div>
-      <label class="cpu-in"><input id="mkIn" type="number" min="1" step="1" value="100" inputmode="numeric"><span>Hashlings</span><button class="link" id="mkMax" type="button">Max</button></label>
-      <p class="cpu-get">You get about <b id="mkOut">–</b> shards.</p>
-      <p class="cpu-bal">You have <span id="mkHave">–</span> · at least <span id="mkMin">–</span> shards, or the swap is not made</p>
-      <div class="cpu-foot"><button class="btn small" id="mkSwap" type="button">Swap</button><p class="status" id="mkStatus" role="status"></p></div>
-    </div>
   </div>
 </dialog>
 
@@ -685,16 +709,16 @@
   </div>
 </dialog>
 
-<script src="planets-data.js?v=20261020j"></script>
-<script src="space.js?v=20261020j"></script>
-<script src="weapons-lib.js?v=20261020j"></script>
-<script src="aw-data.js?v=20261020j"></script>
-<script src="aw-designs.js?v=20261020j"></script>
-<script src="shots.js?v=20261020j"></script>
-<script src="sdf.js?v=20261020j"></script>
-<script src="ships-sdf.js?v=20261020j"></script>
-<script src="hero-gl.js?v=20261020j"></script>
-<script src="ranks.js?v=20261020j"></script>
+<script src="planets-data.js?v=20261020k"></script>
+<script src="space.js?v=20261020k"></script>
+<script src="weapons-lib.js?v=20261020k"></script>
+<script src="aw-data.js?v=20261020k"></script>
+<script src="aw-designs.js?v=20261020k"></script>
+<script src="shots.js?v=20261020k"></script>
+<script src="sdf.js?v=20261020k"></script>
+<script src="ships-sdf.js?v=20261020k"></script>
+<script src="hero-gl.js?v=20261020k"></script>
+<script src="ranks.js?v=20261020k"></script>
 <script>
 'use strict';
 /*
@@ -2632,6 +2656,6 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 </script>
-<script type="module" src="play.js?v=20261020j"></script>
+<script type="module" src="play.js?v=20261020k"></script>
 </body>
 </html>

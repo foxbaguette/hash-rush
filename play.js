@@ -1,8 +1,8 @@
 // The Hash Rush, live screen: the planet being mined on planetmining, every crew that attacked in
 // the last 30 minutes in orbit, the attack log replayed as it comes in, and the hangar where a
 // player changes their playertag and equips crew and weapon.
-import * as chain from './chain.js?v=20261020j';
-import * as gains from './gains.js?v=20261020j';
+import * as chain from './chain.js?v=20261020k';
+import * as gains from './gains.js?v=20261020k';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
@@ -520,15 +520,23 @@ $('cpuClose').addEventListener('click', () => $('cpu').close());
 // and take hashlings out (the chain adds that up at the next swap), so the quote counts them in first
 const MK = { pool: null, cfg: null };
 const big = x => Number(x).toLocaleString('en-US');
+// shards are counted in tenths on the chain: 100 there is 10.0 here (the swap itself still sends chain units)
+const shardsUI = x => (Number(x) / 10).toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const hashlingsHave = () => statOf(S.player, 'hashlings');
 function mkQuote() {
   const n = Math.floor(Number($('mkIn').value));
-  if (!MK.pool) { $('mkOut').textContent = '–'; $('mkMin').textContent = '–'; return 0n; }
+  if (!MK.pool) { for (const id of ['mkOut', 'mkMin', 'mkRate', 'mkImpact']) $(id).textContent = '–'; return 0n; }
   const p = chain.poolAt(MK.pool, MK.cfg, Date.now() / 1000);
-  $('mkPoolH').textContent = big(p.hashlings); $('mkPoolS').textContent = big(p.shards);
-  if (!(n > 0)) { $('mkOut').textContent = '–'; $('mkMin').textContent = '–'; return 0n; }
+  $('mkPoolH').textContent = big(p.hashlings); $('mkPoolS').textContent = shardsUI(p.shards);
+  const none = () => { for (const id of ['mkOut', 'mkMin', 'mkRate', 'mkImpact']) $(id).textContent = '–'; $('mkImpact').classList.remove('warn'); return 0n; };
+  if (!(n > 0)) return none();
   const out = chain.quoteShards(p, n);
-  $('mkOut').textContent = big(out); $('mkMin').textContent = big(out * 99n / 100n);
+  if (out <= 0n) return none();
+  // the rate you actually get, and how much worse it is than the pool's price for a tiny swap
+  const impact = 1 - Number(out) / (n * Number(p.shards) / Number(p.hashlings));
+  $('mkOut').textContent = shardsUI(out); $('mkMin').textContent = shardsUI(out * 99n / 100n);
+  $('mkRate').textContent = big(Math.round(n / (Number(out) / 10)));
+  $('mkImpact').textContent = (impact * 100).toFixed(1) + '%'; $('mkImpact').classList.toggle('warn', impact > 0.05);
   return out;
 }
 async function mkLoad() {
@@ -538,8 +546,10 @@ async function mkLoad() {
   const open = has && pool && Number(pool.shards) > 0;
   $('mkSwap').disabled = !open || !!S.spectating || !S.player;
   $('mkInfo').textContent = !has ? 'The market opens soon.' : !pool ? 'The pool has no liquidity yet.'
-    : (cfg && Number(cfg.shards_per_minute) > 0 ? big(cfg.shards_per_minute) + ' shards flow into the pool every minute and take hashlings out of it, so shards slowly get cheaper.' : 'The more you swap at once, the higher the price of each shard.');
-  $('mkHave').textContent = S.player ? big(hashlingsHave()) + ' hashlings · ' + big(statOf(S.player, 'shards')) + ' shards' : 'no player yet';
+    : (cfg && Number(cfg.shards_per_minute) > 0 ? shardsUI(cfg.shards_per_minute) + ' shards flow into the pool every minute and take hashlings out of it, so shards slowly get cheaper.' : 'The more you swap at once, the higher the price of each shard.');
+  $('mkHave').textContent = S.player ? big(hashlingsHave()) : '–';
+  $('mkHaveS').textContent = S.player ? shardsUI(statOf(S.player, 'shards')) : '–';
+  $('mkHlIcon').innerHTML = gains.ICON;
   if (S.spectating) say($('mkStatus'), 'Watching: connect your own wallet to swap.');
   mkQuote();
 }
@@ -551,16 +561,17 @@ $('marketBtn').addEventListener('click', async () => {
 });
 $('mkIn').addEventListener('input', mkQuote);
 $('mkMax').addEventListener('click', () => { $('mkIn').value = hashlingsHave(); mkQuote(); });
+document.querySelectorAll('#market [data-pct]').forEach(b => b.addEventListener('click', () => { $('mkIn').value = Math.floor(hashlingsHave() * Number(b.dataset.pct)); mkQuote(); }));
 $('mkSwap').addEventListener('click', async () => {
   const n = Math.floor(Number($('mkIn').value));
   if (!(n > 0)) return say($('mkStatus'), 'Enter how many hashlings to swap.', true);
   if (n > hashlingsHave()) return say($('mkStatus'), 'You have ' + big(hashlingsHave()) + ' hashlings.', true);
   const out = mkQuote();
-  if (out <= 0n) return say($('mkStatus'), 'Too few hashlings for a single shard.', true);
+  if (out <= 0n) return say($('mkStatus'), 'Too few hashlings for 0.1 shards.', true);
   $('mkSwap').disabled = true; say($('mkStatus'), 'Confirm in your wallet…');
   try {
     await chain.swap(n, out * 99n / 100n);   // at most 1% fewer shards than shown, or the chain turns it down
-    say($('mkStatus'), 'Swapped ' + big(n) + ' hashlings for about ' + big(out) + ' shards.');
+    say($('mkStatus'), 'Swapped ' + big(n) + ' hashlings for about ' + shardsUI(out) + ' shards.');
     setTimeout(async () => { try { S.player = await chain.getPlayer(S.account); showMe(); } catch { /* next poll */ } mkLoad().catch(() => undefined); }, 1500);
   } catch (err) { say($('mkStatus'), chain.friendlyError(err), true); }
   finally { $('mkSwap').disabled = false; }
