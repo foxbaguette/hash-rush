@@ -26,18 +26,31 @@ const Ranks = (() => {
   const title = n => { const r = rankOf(n); return r ? (r.t ? TIERS[r.t].name + ' ' : '') + NAMES[r.s] : ''; };
 
   // ---- drawing (a 40 x 40 badge)
-  const star = (x, y, r, f, d) => { let p = ''; for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.45 : r; p += (i ? 'L' : 'M') + (x + Math.cos(a) * rr).toFixed(2) + ' ' + (y + Math.sin(a) * rr).toFixed(2); } return `<path d="${p}Z" fill="${f}" stroke="${d}" stroke-width=".8" stroke-linejoin="round"/>`; };
-  const row = (n, y, w, fn) => { let o = ''; for (let i = 0; i < n; i++) o += fn(20 + (i - (n - 1) / 2) * w, y, i); return o; };
-  const chev = (y, f, d) => `<path d="M7 ${y} L20 ${y + 5} L33 ${y} L33 ${y + 3} L20 ${y + 8} L7 ${y + 3}Z" fill="${f}" stroke="${d}" stroke-width=".8" stroke-linejoin="round"/>`;
-  const dot = (x, y, r, f, d) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${f}" stroke="${d}" stroke-width=".8"/>`;
-  const crown = (y, f, d) => `<path d="M12 ${y} L14 ${y - 6} L17 ${y - 2} L20 ${y - 7} L23 ${y - 2} L26 ${y - 6} L28 ${y} Z" fill="${f}" stroke="${d}" stroke-width=".8" stroke-linejoin="round"/>`;
-  function symbol(s, f, d) {
-    if (s < 5) { const n = s + 1; return row(n, 0, 0, (x, y, i) => chev(9 + i * 5 - (n - 1) * 2.5, f, d)); }   // 1-5 chevrons
-    if (s < 10) return row(s - 4, 20, 6.6, (x, y) => star(x, y, 5, f, d));                                    // 6-10 stars
-    const g = s < 15 ? 2 : 3, n = (s - 10) % 5 + 1;                                                           // 11-20 pilot wings
+  // The badge is tiny (16 to 24 px), so every symbol fills the box with bold shapes, and a near-black
+  // outline drawn under the fill keeps it readable on any sky, planet or panel.
+  const OUT = '#05060a';
+  const shape = (d, f) => `<path d="${d}" fill="${f}" stroke="${OUT}" stroke-width="3.2" stroke-linejoin="round" paint-order="stroke"/>`;
+  const n2 = v => v.toFixed(2);
+  const star = (x, y, r, f) => { let p = ''; for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.5 : r; p += (i ? 'L' : 'M') + n2(x + Math.cos(a) * rr) + ' ' + n2(y + Math.sin(a) * rr); } return shape(p + 'Z', f); };
+  const chev = (y, t, dip, f) => shape(`M4 ${n2(y)} L20 ${n2(y + dip)} L36 ${n2(y)} L36 ${n2(y + t)} L20 ${n2(y + dip + t)} L4 ${n2(y + t)}Z`, f);
+  const crown = (y, f) => shape(`M11 ${y} L12.5 ${y - 8} L16.5 ${y - 3} L20 ${y - 9.5} L23.5 ${y - 3} L27.5 ${y - 8} L29 ${y}Z`, f);
+  // star layouts for 1 to 5 stars: [x, y, r]
+  const STARS = [[[20, 21, 16]], [[11, 21, 9.5], [29, 21, 9.5]], [[20, 11.5, 8.5], [11, 27.5, 8.5], [29, 27.5, 8.5]],
+    [[11, 11.5, 8], [29, 11.5, 8], [11, 28.5, 8], [29, 28.5, 8]], [[10, 10.5, 7.5], [30, 10.5, 7.5], [10, 29.5, 7.5], [30, 29.5, 7.5], [20, 20.5, 8.5]]];
+  function symbol(s, f) {
+    if (s < 5) {   // 1-5 chevrons, stacked and centred; fewer chevrons are thicker
+      const n = s + 1, t = [9, 7, 5.6, 4.8, 4.2][s], dip = 8, gap = t * 0.45, h = n * t + (n - 1) * gap + dip;
+      let o = ''; for (let i = 0; i < n; i++) o += chev(20 - h / 2 + i * (t + gap), t, dip, f); return o;
+    }
+    if (s < 10) return STARS[s - 5].map(([x, y, r]) => star(x, y, r, f)).join('');   // 6-10 stars
+    // 11-20 pilot wings: feathers either side of a star (16-20 add a crown); more feathers, higher rank
+    const g = s < 15 ? 2 : 3, m = (s - 10) % 5 + 2, sy = g === 2 ? 20 : 25, th = m <= 3 ? 4.8 : m <= 4 ? 3.9 : 3.3, total = m * (th + 0.9);
     let o = '';
-    for (const side of [-1, 1]) for (let i = 0; i < n + 1; i++) { const w = 14 - i * 1.6, y = 17 + i * 2.6; o += `<path d="M${20 + side * 4} ${y} L${20 + side * (4 + w)} ${y - 2} L${20 + side * (4 + w - 1.5)} ${y + 1.6} L${20 + side * 4} ${y + 2}Z" fill="${f}" stroke="${d}" stroke-width=".5"/>`; }
-    return g === 2 ? o + star(20, 20, 6, f, d) : o + star(20, 21, 5.5, f, d) + crown(13, f, d);
+    for (const side of [-1, 1]) for (let i = 0; i < m; i++) {
+      const c = 20 + side * 5, len = 15 - i * (7 / m), y = sy - total / 2 + 1 + i * (th + 0.9);
+      o += shape(`M${c} ${n2(y)} L${n2(c + side * len)} ${n2(y - 2.5)} L${n2(c + side * (len - 2))} ${n2(y + th - 1)} L${c} ${n2(y + th)}Z`, f);
+    }
+    return g === 2 ? o + star(20, sy, 9.5, f) : o + star(20, sy, 8, f) + crown(15, f);
   }
   let uid = 0;
   /** The badge as an SVG string for this many hashes ('' for none). */
