@@ -1,8 +1,8 @@
 // The Hash Rush, live screen: the planet being mined on planetmining, every crew that attacked in
 // the last 30 minutes in orbit, the attack log replayed as it comes in, and the hangar where a
 // player changes their playertag and equips crew and weapon.
-import * as chain from './chain.js?v=20261020f';
-import * as gains from './gains.js?v=20261020f';
+import * as chain from './chain.js?v=20261020g';
+import * as gains from './gains.js?v=20261020g';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
@@ -71,7 +71,7 @@ function updateHud() {
   $('meterFill').style.width = pct.toFixed(2) + '%';
   $('meter').setAttribute('aria-valuenow', pct.toFixed(1));
   $('crews').textContent = S.ships.size;
-  $('crewsWord').textContent = S.ships.size === 1 ? 'crew' : 'crews';
+  $('crewsWord').textContent = S.ships.size === 1 ? 'vessel' : 'vessels';
 }
 function loadPlanet(tr) {
   const total = chain.chainBlocks(Number(tr.radius)), destroyed = Math.min(total, Number(tr.destroyed_blocks));
@@ -340,7 +340,10 @@ async function refreshAutoFire() {
   S.autoSignAttack = acts.includes('attack');
   $('autoFireRow').hidden = !S.autoSignAttack;
   let saved = false;
-  try { saved = localStorage.getItem(AUTOFIRE_KEY) === '1'; } catch { /* off */ }
+  try {
+    if (!S.autoSignAttack && !S.spectating && S.player) localStorage.setItem(AUTOFIRE_KEY, '0');   // no auto-sign: forget it, so it starts off when auto-sign comes back
+    saved = localStorage.getItem(AUTOFIRE_KEY) === '1';
+  } catch { /* off */ }
   S.autoFire = S.autoSignAttack && saved;
   $('autoFire').checked = S.autoFire;
 }
@@ -362,6 +365,10 @@ $('mineOn').addEventListener('change', e => {
     : 'Mining off: attacks cost less CPU. Only finding the hash pays hashlings.');
   clearTimeout(S.mineNote); S.mineNote = setTimeout(() => say($('attackStatus'), ''), 8000);
 });
+// why mining costs more CPU: what the extra work is
+$('mineWhy').addEventListener('click', e => { e.preventDefault(); $('mineInfo').showModal(); });
+$('mineInfoClose').addEventListener('click', () => $('mineInfo').close());
+$('mineInfoCpu').addEventListener('click', () => { $('mineInfo').close(); $('cpuBtn').click(); });
 $('autoFire').addEventListener('change', e => {
   S.autoFire = e.target.checked && S.autoSignAttack;
   S.autoPause = 0;
@@ -532,6 +539,8 @@ $('autoSave').addEventListener('click', async () => {
   say($('autoStatus'), 'Approve it in your wallet…');
   try {
     await chain.setAutoSign(want);
+    // turning on auto-sign for attack never switches auto attack on: that is its own choice, off to begin with
+    if (want.includes('attack') && !AUTO.saved.includes('attack')) try { localStorage.setItem(AUTOFIRE_KEY, '0'); } catch { /* this visit only */ }
     AUTO.saved = want;
     refreshAutoFire();   // auto attack is offered only while attacks sign by themselves
     say($('autoStatus'), want.length ? 'Saved. These actions now sign without the wallet window.' : 'Saved. Everything goes through your wallet again.');

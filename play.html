@@ -7,10 +7,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Michroma&family=Barlow+Condensed:wght@500;600;800&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link rel="icon" href="favicon.svg?v=20261020f" type="image/svg+xml">
-<link rel="icon" href="favicon-32.png?v=20261020f" type="image/png" sizes="32x32">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=20261020f">
-<link rel="stylesheet" href="ui.css?v=20261020f">
+<link rel="icon" href="favicon.svg?v=20261020g" type="image/svg+xml">
+<link rel="icon" href="favicon-32.png?v=20261020g" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=20261020g">
+<link rel="stylesheet" href="ui.css?v=20261020g">
 <style>
   html, body { margin: 0; height: 100%; background: #000; color: var(--ink); overflow: hidden; font: 15px/1.5 var(--text); }
   canvas#c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; opacity: 0; transition: opacity 1s; }
@@ -151,6 +151,12 @@
   .plate .pswitch { position: absolute; right: 0; bottom: calc(100% + 8px); display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px 16px; white-space: nowrap; text-shadow: 0 1px 8px #000; }
   .plate .pswitch .cpu { display: none; margin-left: 6px; color: var(--a-hi); letter-spacing: 0.12em; }
   .plate .pswitch .mining:has(input:checked) .cpu { display: inline; }
+  .plate .pswitch .cpu { background: none; border: 0; padding: 0; font: inherit; text-transform: inherit; cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }   /* opens why mining costs more CPU */
+  .plate .pswitch .cpu:hover { color: #fff; }
+  .mine-info p { margin: 0 0 12px; color: #cfc6b6; font-size: 15px; line-height: 1.55; }
+  .mine-info ul { margin: 0 0 14px; padding-left: 18px; color: #cfc6b6; font-size: 14px; line-height: 1.7; }
+  .mine-info li::marker { color: var(--a); }
+  .mine-info .cpu-foot { margin-top: 6px; }
   /* destroyed planets: a list, newest first */
   dialog.history { width: min(560px, calc(100vw - 32px)); max-width: none; max-height: min(720px, calc(100dvh - 32px)); padding: 0; border: 1px solid var(--line); background: var(--glass); color: var(--ink); box-shadow: 0 40px 100px #000d; }
   dialog.history[open] { display: flex; flex-direction: column; overflow: hidden; }   /* only the list scrolls */
@@ -383,7 +389,7 @@
     .look-panel { left: 0; right: 0; top: auto; bottom: 0; width: auto; max-height: 50vh; min-height: 0; z-index: 30; border-width: 1px 0 0;
       padding: 12px calc(18px + var(--sar)) calc(16px + var(--sab)) calc(18px + var(--sal)); }
     .look-panel input[type=range] { height: 26px; }
-    .feed { left: calc(14px + var(--sal)); top: calc(100px + var(--sat)); bottom: auto; width: calc(100vw - 28px); gap: 4px; }
+    .feed { left: calc(14px + var(--sal)); top: calc(124px + var(--sat)); bottom: auto; width: calc(100vw - 28px); gap: 4px; }   /* below the planet HUD and its two count lines */
     .feed .row { font-size: 12px; gap: 6px; padding: 4px 8px 4px 6px; }
     .feed .row .wchip { font-size: 9px; padding: 0 5px; max-width: 120px; }
     .feed .row:nth-child(n+4) { display: none; }
@@ -395,6 +401,9 @@
     .dtile .t { left: 6px; right: 6px; bottom: 5px; } .dtile .t b { font-size: 11px; } .dtile .t span { font-size: 8px; letter-spacing: 0.12em; }
     .dtile .shb { top: 5px; right: 5px; padding: 1px 4px; font-size: 8px; }
     .plate { order: 2; flex-direction: column; align-items: flex-end; gap: 6px; }
+    .plate .pswitch { position: static; order: -1; margin-bottom: 2px; }   /* in the column, so a message above the dock never lands on the switches */
+    .plate .pswitch .mining { flex-wrap: wrap; justify-content: flex-end; row-gap: 3px; }
+    .plate .pswitch .mining .cpu { flex-basis: 100%; text-align: right; margin-left: 0; font-size: 10px; }   /* its own line: the row stays as wide as the attack button */
     .plate .n { display: flex; align-items: baseline; gap: 8px; }
     .plate .n b { display: inline; font-size: 26px; }
     .plate .btn.attack { min-width: 168px; padding: 20px 22px; font-size: 18px; }
@@ -485,7 +494,7 @@
   <div class="eyebrow">Now mining</div>
   <h1 id="pName"></h1>
   <div class="meter" role="progressbar" aria-label="Share of the planet destroyed" aria-valuemin="0" aria-valuemax="100" id="meter"><i id="meterFill"></i></div>
-  <div class="nums"><span><b id="destroyed">0</b> of <b id="total">–</b> blocks gone</span><span><b id="crews">0</b> <span id="crewsWord">crews</span> in orbit</span></div>
+  <div class="nums"><span><b id="destroyed">0</b> of <b id="total">–</b> blocks gone</span><span><b id="crews">0</b> <span id="crewsWord">vessels</span> in orbit</span></div>
 </header>
 
 <div class="me" id="meBox">
@@ -516,7 +525,7 @@
       <div class="n"><small>Damage</small><b id="loDmg">–</b></div>
       <div class="fire" id="fireWrap"><span class="burst" aria-hidden="true"></span><button class="btn attack" id="attackBtn" type="button"><span class="cd" id="cdFill"></span><span class="lbl" id="attackLbl">Attack</span></button></div>
       <div class="pswitch">
-        <label class="switch mining" id="mineRow" hidden title="Mining: every attack earns 1 hashling per block destroyed. It also runs automated tasks, so each attack uses more CPU."><input type="checkbox" id="mineOn">Mine hashlings<span class="cpu">· more CPU</span></label>
+        <label class="switch mining" id="mineRow" hidden title="Mining: every attack earns 1 hashling per block destroyed. It also runs automated tasks, so each attack uses more CPU."><input type="checkbox" id="mineOn">Mine hashlings<button class="cpu" id="mineWhy" type="button" aria-haspopup="dialog">· more CPU</button></label>
         <label class="switch autofire" id="autoFireRow" hidden><input type="checkbox" id="autoFire">Auto attack</label>
       </div>
     </div>
@@ -552,6 +561,23 @@
       <p class="cpu-bal">You have <span id="mkHave">–</span> · at least <span id="mkMin">–</span> shards, or the swap is not made</p>
       <div class="cpu-foot"><button class="btn small" id="mkSwap" type="button">Swap</button><p class="status" id="mkStatus" role="status"></p></div>
     </div>
+  </div>
+</dialog>
+
+<dialog class="history cpu mine-info" id="mineInfo" aria-labelledby="mineInfoTitle">
+  <div class="head"><div><div class="eyebrow">Mine hashlings</div><h2 id="mineInfoTitle">Why more CPU</h2></div><button class="link" id="mineInfoClose" type="button">Close</button></div>
+  <div class="list">
+    <p>With mining on, every attack pays 1 hashling for each block it destroys. With it off, only finding the golden hash pays.</p>
+    <p>In return, each mining attack also does one job for the Alien Legends games: it runs the next task waiting in their shared task list. These jobs keep the games moving, and mining players run them as they play. For example:</p>
+    <ul>
+      <li>Moving tournaments to their next round</li>
+      <li>Closing finished market auctions</li>
+      <li>Mining land for the reward pools, and refreshing the pools</li>
+      <li>Updating arena defences</li>
+      <li>Clearing out old fights and fighters</li>
+    </ul>
+    <p>That extra job is what costs the extra CPU. When no task is waiting, a mining attack costs about the same as a normal one.</p>
+    <div class="cpu-foot"><button class="btn small" id="mineInfoCpu" type="button">Check my CPU</button></div>
   </div>
 </dialog>
 
@@ -628,16 +654,16 @@
   </div>
 </dialog>
 
-<script src="planets-data.js?v=20261020f"></script>
-<script src="space.js?v=20261020f"></script>
-<script src="weapons-lib.js?v=20261020f"></script>
-<script src="aw-data.js?v=20261020f"></script>
-<script src="aw-designs.js?v=20261020f"></script>
-<script src="shots.js?v=20261020f"></script>
-<script src="sdf.js?v=20261020f"></script>
-<script src="ships-sdf.js?v=20261020f"></script>
-<script src="hero-gl.js?v=20261020f"></script>
-<script src="ranks.js?v=20261020f"></script>
+<script src="planets-data.js?v=20261020g"></script>
+<script src="space.js?v=20261020g"></script>
+<script src="weapons-lib.js?v=20261020g"></script>
+<script src="aw-data.js?v=20261020g"></script>
+<script src="aw-designs.js?v=20261020g"></script>
+<script src="shots.js?v=20261020g"></script>
+<script src="sdf.js?v=20261020g"></script>
+<script src="ships-sdf.js?v=20261020g"></script>
+<script src="hero-gl.js?v=20261020g"></script>
+<script src="ranks.js?v=20261020g"></script>
 <script>
 'use strict';
 /*
@@ -2575,6 +2601,6 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 </script>
-<script type="module" src="play.js?v=20261020f"></script>
+<script type="module" src="play.js?v=20261020g"></script>
 </body>
 </html>
