@@ -7,10 +7,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Michroma&family=Barlow+Condensed:wght@500;600;800&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link rel="icon" href="favicon.svg?v=20261020k" type="image/svg+xml">
-<link rel="icon" href="favicon-32.png?v=20261020k" type="image/png" sizes="32x32">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=20261020k">
-<link rel="stylesheet" href="ui.css?v=20261020k">
+<link rel="icon" href="favicon.svg?v=20261020l" type="image/svg+xml">
+<link rel="icon" href="favicon-32.png?v=20261020l" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=20261020l">
+<link rel="stylesheet" href="ui.css?v=20261020l">
 <style>
   html, body { margin: 0; height: 100%; background: #000; color: var(--ink); overflow: hidden; font: 15px/1.5 var(--text); }
   canvas#c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; opacity: 0; transition: opacity 1s; }
@@ -79,14 +79,39 @@
   .who.menu:hover b::after, .who.menu:focus-visible b::after { border-color: var(--ink); }
   .who[aria-expanded="true"] b::after { transform: rotate(225deg) translate(-3px, -3px); }
   .who:focus-visible { outline: 1px solid var(--a); outline-offset: 4px; }
-  .me-menu { position: absolute; right: 0; top: calc(100% + 10px); z-index: 10; min-width: 250px; padding: 8px 16px; text-align: right; background: var(--glass); border: 1px solid var(--line); box-shadow: 0 20px 40px #000b; animation: feed-in 0.2s cubic-bezier(.2, .8, .2, 1); }
-  .me-menu .link { display: block; margin-left: auto; padding: 7px 0; font-size: 15px; }
+  /* the menu, a speed dial: --fabL / --fabB place the round button (per screen size below; on upright
+     phones play.js puts it just above the dock); the stack rises from it */
+  :root { --fabL: 48px; --fabB: 40px; }
+  .dial-fab { position: fixed; left: calc(var(--fabL) + var(--sal, 0px)); bottom: var(--fabB); z-index: 21; width: 56px; height: 56px; border-radius: 50%; border: 0; padding: 0; display: grid; place-items: center; cursor: pointer; color: #140700;
+    background: repeating-linear-gradient(0deg, #ffffff0f 0 1px, #0000 1px 3px), linear-gradient(180deg, var(--a-hi), var(--a) 46%, var(--a-lo)); box-shadow: 0 10px 30px #ff6a1a55; transition: transform 0.15s, filter 0.2s; }
+  .dial-fab:hover { filter: brightness(1.08); } .dial-fab:active { transform: scale(0.96); } .dial-fab:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+  .dial-fab svg { position: absolute; width: 24px; height: 24px; stroke-width: 2.4; transition: opacity 0.2s, transform 0.3s cubic-bezier(.2, .8, .2, 1); }
+  .dial-fab .x { opacity: 0; transform: rotate(-90deg); }
+  .dial-open .dial-fab .x { opacity: 1; transform: none; } .dial-open .dial-fab .m { opacity: 0; transform: rotate(90deg); }
+  .dial-dim { position: fixed; inset: 0; z-index: 19; background: #000a; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+  .dial-open .dial-dim { opacity: 1; pointer-events: auto; }
+  .dial-items { position: fixed; left: calc(var(--fabL) + var(--sal, 0px) + 5px); bottom: calc(var(--fabB) + 70px); z-index: 20; display: grid; gap: 10px; justify-items: start; pointer-events: none; }
+  .dial-open .dial-items { pointer-events: auto; }
+  .dd { display: flex; align-items: center; gap: 10px; padding: 0; border: 0; background: none; color: var(--ink); font: inherit; text-align: left; cursor: pointer; visibility: hidden; opacity: 0; }
+  .dial-open .dd { visibility: visible; animation: dd-in 0.36s cubic-bezier(.2, .8, .2, 1) calc(var(--i) * 40ms) both; }
+  @keyframes dd-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  .dd .c { width: 46px; height: 46px; flex: none; border-radius: 50%; display: grid; place-items: center; color: var(--a); background: #14110ef2; border: 1px solid #ffffff2a; box-shadow: 0 8px 20px #000a; transition: border-color 0.2s, transform 0.2s; }
+  .dd .c svg { width: 20px; height: 20px; }
+  .dd:hover .c, .dd:focus-visible .c { border-color: var(--a); transform: translateY(-1px); } .dd:focus-visible { outline: none; }
+  .dd .pill { padding: 5px 11px; background: #0b0908e6; border: 1px solid #ffffff14; border-radius: 8px; }
+  .dd .pill b { display: block; font: 500 14px var(--text); white-space: nowrap; }
+  .dd .pill small { display: block; font-size: 12px; color: #9a9284; white-space: nowrap; }
+  .dd .pill small:empty { display: none; }
+  .dd .pill small.on { color: #6fe39a; } .dd .pill small.low { color: #ffb340; }
+  .dd.out .c { color: #ff7a6a; } .dd.out:hover .c { border-color: #ff7a6a; } .dd.out .pill b { color: #ff8a7a; }
+  .loadout, .feed { transition: opacity 0.3s, transform 0.4s cubic-bezier(.2, .8, .2, 1); }
+  @media (prefers-reduced-motion: reduce) { .dial-open .dd { animation-duration: 0.01s; animation-delay: 0s; } }
   .who small { display: block; font: 600 11px var(--label); letter-spacing: 0.3em; text-transform: uppercase; color: var(--mute); }
   .who b { font: 400 17px var(--display); letter-spacing: 0.02em; }
 
   /* what just happened, bottom left */
   /* kill feed: one compact row per hit, newest on top, older rows fade */
-  .feed { position: fixed; left: 48px; bottom: 40px; width: min(460px, calc(100vw - 96px)); display: flex; flex-direction: column; align-items: flex-start; gap: 5px; pointer-events: none; }
+  .feed { position: fixed; left: 48px; bottom: 112px; width: min(460px, calc(100vw - 96px)); display: flex; flex-direction: column; align-items: flex-start; gap: 5px; pointer-events: none; }
   .feed .row { display: flex; align-items: center; gap: 8px; max-width: 100%; padding: 5px 10px 5px 8px; background: #000a; border-left: 2px solid var(--pc, var(--a)); font-size: 14px; color: #d8d0c2; animation: feed-in 0.3s cubic-bezier(.2, .8, .2, 1); transition: opacity 1s; }
   .feed .row .who { font-weight: 600; white-space: nowrap; }
   .feed .row .ar { color: #5d574e; }
@@ -237,8 +262,8 @@
   .mk-chips button:hover, .mk-chips button:focus-visible { border-color: var(--a); color: var(--ink); outline: none; }
   .mk-flip { display: grid; place-items: center; height: 0; position: relative; z-index: 1; }
   .mk-flip span { width: 34px; height: 34px; display: grid; place-items: center; background: #0b0908; border: 1px solid #ffffff24; color: var(--a); font-size: 16px; }
-  .mk-out { display: flex; align-items: center; gap: 8px; margin-top: 6px; font: 400 28px var(--display); color: #7fe3ff; }
-  .mk-out svg { width: 22px; height: 22px; }
+  .mk-out { display: flex; align-items: center; gap: 10px; margin-top: 6px; font: 400 28px var(--display); color: #e6a3f2; }   /* the shards purple */
+  .mk-out svg { width: 26px; height: 26px; flex: none; }
   .mk-kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin-top: 12px; font-size: 13px; color: #b8b0a2; }
   .mk-kv b { color: var(--ink); font-weight: 600; text-align: right; }
   .mk-kv b.warn { color: #ffb340; }
@@ -399,7 +424,8 @@
     .hud { left: calc(24px + var(--sal)); top: calc(24px + var(--sat)); width: min(330px, calc(100vw - 48px)); }
     .me { right: calc(24px + var(--sar)); top: calc(22px + var(--sat)); }
     .look-panel { top: calc(96px + var(--sat)); right: calc(24px + var(--sar)); max-height: calc(100vh - 360px); }
-    .feed { left: calc(24px + var(--sal)); bottom: calc(28px + var(--sab)); width: min(380px, calc(100vw - 48px)); }
+    .feed { left: calc(24px + var(--sal)); bottom: calc(96px + var(--sab)); width: min(380px, calc(100vw - 48px)); }
+    :root { --fabL: 24px; --fabB: calc(28px + var(--sab, 0px)); }
     .loadout { right: calc(24px + var(--sar)); bottom: calc(24px + var(--sab)); }
     .dtile { width: 92px; height: 124px; }
     .dock { gap: 18px; }
@@ -438,6 +464,12 @@
       padding: 12px calc(18px + var(--sar)) calc(16px + var(--sab)) calc(18px + var(--sal)); }
     .look-panel input[type=range] { height: 26px; }
     .feed { left: calc(14px + var(--sal)); top: calc(124px + var(--sat)); bottom: auto; width: calc(100vw - 28px); gap: 4px; }   /* below the planet HUD and its two count lines */
+    :root { --fabL: 14px; }
+    .dial-open .loadout { opacity: 0; transform: translateY(40px); pointer-events: none; }
+    .dial-open .feed { opacity: 0; }
+    .dial-open .dial-fab { bottom: calc(14px + var(--sab, 0px)); }   /* down into the dock's empty place */
+    .dial-open .dial-items { bottom: calc(84px + var(--sab, 0px)); }
+    .dial-anim .dial-fab, .dial-anim .dial-items { transition: bottom 0.4s cubic-bezier(.2, .8, .2, 1); }   /* only while it opens or closes, never on load */
     .feed .row { font-size: 12px; gap: 6px; padding: 4px 8px 4px 6px; }
     .feed .row .wchip { font-size: 9px; padding: 0 5px; max-width: 120px; }
     .feed .row:nth-child(n+4) { display: none; }
@@ -498,7 +530,8 @@
     .me .btn { padding: 8px 14px; font-size: 11px; letter-spacing: 0.16em; }
     .look-panel { position: fixed; top: 0; bottom: 0; right: 0; left: auto; width: min(320px, 42vw); max-height: none; min-height: 0; z-index: 30; border-width: 0 0 0 1px;
       padding: calc(10px + var(--sat)) calc(16px + var(--sar)) 10px 16px; }
-    .feed { left: calc(16px + var(--sal)); bottom: calc(12px + var(--sab)); top: auto; width: min(330px, 42vw); gap: 4px; }
+    .feed { left: calc(16px + var(--sal)); bottom: calc(78px + var(--sab)); top: auto; width: min(330px, 42vw); gap: 4px; }
+    :root { --fabL: 16px; --fabB: calc(12px + var(--sab, 0px)); }
     .feed .row { font-size: 12px; padding: 3px 8px 3px 6px; gap: 6px; }
     .feed .row .wchip { font-size: 9px; padding: 0 5px; }
     .feed .row:nth-child(n+4) { display: none; }
@@ -547,20 +580,24 @@
 
 <div class="me" id="meBox">
   <div class="who-wrap">
-    <button class="who" id="who" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="meMenu"></button>
-    <div class="me-menu" id="meMenu" hidden>
-      <button class="link" id="hangarBtn" type="button" hidden>Hangar</button>
-      <button class="link" id="autoBtn" type="button" hidden>Auto-sign</button>
-      <button class="link" id="historyBtn" type="button">Destroyed planets</button>
-      <button class="link" id="marketBtn" type="button">Hashling market</button>
-      <button class="link" id="cpuBtn" type="button">CPU and powerup</button>
-      <button class="link" id="signOut" type="button">Sign out</button>
-    </div>
+    <button class="who" id="who" type="button" disabled></button>
   </div>
   <button class="btn small" id="connectBtn" type="button" hidden>Connect wallet</button>
 </div>
 
 <div class="look-panel" id="lookPanel" hidden></div>
+
+<!-- the menu: a speed dial. The round button low on the left opens a stack of actions, each with its state -->
+<div class="dial-dim" id="dialDim"></div>
+<nav class="dial-items" id="dialItems" aria-label="Menu">
+      <button class="dd out" id="signOut" type="button" style="--i:5"><span class="c"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 4H5v16h5M14 8l4 4-4 4M18 12H9"/></svg></span><span class="pill"><b>Sign out</b><small id="ddOut"></small></span></button>
+      <button class="dd" id="autoBtn" type="button" style="--i:4"><span class="c"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3M15 8l2 2"/></svg></span><span class="pill"><b>Auto-sign</b><small id="ddAuto"></small></span></button>
+      <button class="dd" id="cpuBtn" type="button" style="--i:3"><span class="c"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 5 14h6l-1 8 8-12h-6z"/></svg></span><span class="pill"><b>CPU and powerup</b><small id="ddCpu"></small></span></button>
+      <button class="dd" id="historyBtn" type="button" style="--i:2"><span class="c"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 4v6l5 3M4.5 9.5l5 2"/></svg></span><span class="pill"><b>Destroyed planets</b><small id="ddPlanets"></small></span></button>
+      <button class="dd" id="marketBtn" type="button" style="--i:1"><span class="c"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h14l-3-3M20 16H6l3 3"/></svg></span><span class="pill"><b>Hashling market</b><small id="ddMarket"></small></span></button>
+      <button class="dd" id="hangarBtn" type="button" style="--i:0"><span class="c"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4 15l3 2 5-3 5 3 3-2z"/><path d="M12 14v7"/></svg></span><span class="pill"><b>Hangar</b><small id="ddHangar"></small></span></button>
+</nav>
+<button class="dial-fab" id="dialFab" type="button" aria-label="Menu" aria-expanded="false" aria-controls="dialItems" hidden><svg class="m" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14"/></svg><svg class="x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
 <div class="feed" id="feed" aria-live="polite"></div>
 
 <div class="loadout" id="loadout" hidden>
@@ -605,7 +642,7 @@
     <div class="mk-flip" aria-hidden="true"><span>↓</span></div>
     <div class="mk-get">
       <small><span>You get about</span><span>at least <b id="mkMin">–</b></span></small>
-      <b class="mk-out"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1 19 9 12 23 5 9z" fill="#2a9fd0"/><path d="M12 1 19 9H5z" fill="#c8f6ff"/><path d="M12 23 5 9h7z" fill="#5fd0f0"/></svg><span id="mkOut">–</span></b>
+      <b class="mk-out"><svg viewBox="0 0 35 35" aria-hidden="true"><path fill="#D277E4" d="M33.2642 10.8435C32.3952 8.81004 31.1612 6.98511 29.5969 5.40349C28.0328 3.83926 26.1904 2.60526 24.1569 1.73624C22.0539 0.849839 19.8118 0.397949 17.5002 0.397949C15.1886 0.397949 12.9466 0.849839 10.8435 1.73624C8.81004 2.60526 6.98511 3.83926 5.40349 5.40349C3.82188 6.96773 2.60526 8.81004 1.73624 10.8435C0.849839 12.9466 0.397949 15.1886 0.397949 17.5002C0.397949 19.8118 0.849839 22.0539 1.73624 24.1569C2.60526 26.1904 3.83926 28.0153 5.40349 29.5969C6.96773 31.1612 8.81004 32.3952 10.8435 33.2642C12.9466 34.1506 15.1886 34.6025 17.5002 34.6025C19.8118 34.6025 22.0539 34.1506 24.1569 33.2642C26.1904 32.3952 28.0153 31.1612 29.5969 29.5969C31.1612 28.0328 32.3952 26.1904 33.2642 24.1569C34.1506 22.0539 34.6025 19.8118 34.6025 17.5002C34.6025 15.1886 34.1506 12.9466 33.2642 10.8435ZM17.5002 32.9166C9.00119 32.9166 2.08384 25.9993 2.08384 17.5002C2.08384 9.00119 9.00119 2.08384 17.5002 2.08384C25.9993 2.08384 32.9166 9.00119 32.9166 17.5002C32.9166 25.9993 25.9993 32.9166 17.5002 32.9166Z"/><path fill="#D277E4" d="M15.1191 10.8261V24.1915L17.5003 32.0822L19.8988 24.1915V10.8261L17.5003 2.91797L15.1191 10.8261Z"/><path fill="#D277E4" d="M8.96582 13.902V21.1149L11.3469 25.3905L13.7454 21.1149V13.902L11.3469 9.62646L8.96582 13.902Z"/><path fill="#D277E4" d="M21.2715 13.902V21.1149L23.6526 25.3905L26.0511 21.1149V13.902L23.6526 9.62646L21.2715 13.902Z"/></svg><span id="mkOut">–</span></b>
     </div>
     <div class="mk-kv">
       <span>Rate</span><b><span id="mkRate">–</span> hashlings per shard</b>
@@ -709,16 +746,16 @@
   </div>
 </dialog>
 
-<script src="planets-data.js?v=20261020k"></script>
-<script src="space.js?v=20261020k"></script>
-<script src="weapons-lib.js?v=20261020k"></script>
-<script src="aw-data.js?v=20261020k"></script>
-<script src="aw-designs.js?v=20261020k"></script>
-<script src="shots.js?v=20261020k"></script>
-<script src="sdf.js?v=20261020k"></script>
-<script src="ships-sdf.js?v=20261020k"></script>
-<script src="hero-gl.js?v=20261020k"></script>
-<script src="ranks.js?v=20261020k"></script>
+<script src="planets-data.js?v=20261020l"></script>
+<script src="space.js?v=20261020l"></script>
+<script src="weapons-lib.js?v=20261020l"></script>
+<script src="aw-data.js?v=20261020l"></script>
+<script src="aw-designs.js?v=20261020l"></script>
+<script src="shots.js?v=20261020l"></script>
+<script src="sdf.js?v=20261020l"></script>
+<script src="ships-sdf.js?v=20261020l"></script>
+<script src="hero-gl.js?v=20261020l"></script>
+<script src="ranks.js?v=20261020l"></script>
 <script>
 'use strict';
 /*
@@ -2656,6 +2693,6 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 </script>
-<script type="module" src="play.js?v=20261020k"></script>
+<script type="module" src="play.js?v=20261020l"></script>
 </body>
 </html>

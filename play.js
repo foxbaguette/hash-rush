@@ -1,8 +1,8 @@
 // The Hash Rush, live screen: the planet being mined on planetmining, every crew that attacked in
 // the last 30 minutes in orbit, the attack log replayed as it comes in, and the hangar where a
 // player changes their playertag and equips crew and weapon.
-import * as chain from './chain.js?v=20261020k';
-import * as gains from './gains.js?v=20261020k';
+import * as chain from './chain.js?v=20261020l';
+import * as gains from './gains.js?v=20261020l';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
@@ -215,7 +215,7 @@ const rankOfWallet = w => knownPlayers.has(w) ? Ranks.badge(Ranks.hashesOf(known
 
 // ---------------------------------------------------------------- polling
 async function poll() {
-  const now = Date.now() / 1000;
+  const now = Date.now() / 1000, gen = S.gen;   // a catch-up that starts while this read is on its way makes it stale
   const [tr, logs, active, cfg, me, tpls] = await Promise.all([chain.getCurrentPlanet(), chain.getLogsAfter(S.lastLog), chain.getActivePlayers(now - ACTIVE_SEC), chain.getConfig(), S.account ? chain.getPlayer(S.account) : null, chain.getTemplates()]);
   const known = S.damage.size;
   for (const t of tpls) S.damage.set(Number(t.template_id), Number(t.damage));
@@ -237,7 +237,17 @@ async function poll() {
 
   // replay everything logged since the last look, spread at random over the next 10 seconds
   logs.sort((a, b) => Number(a.index) - Number(b.index));
-  const gen = S.gen;
+  // back from a hidden tab: the catch-up shows the planet as it is now, so a read that left before it
+  // (or lands while it runs) replays nothing; it would play every hit since you left in a rush
+  if (gen !== S.gen || S.catching) return;
+  // a backlog (the catch-up failed, or a long stall): no rush of replays, just the count and the planet as it is now
+  if (logs.length > 20 && !S.away) {
+    S.lastLog = Math.max(S.lastLog, ...logs.map(l => Number(l.index)));
+    feed('<span class="num">' + fmt(logs.length) + '</span><span>hits while you were away</span>');
+    if (me) gains.sync(statOf(me, 'hashlings'), S.account);
+    loadPlanet(tr);
+    return;
+  }
   for (const log of logs) {
     S.lastLog = Math.max(S.lastLog, Number(log.index));
     if (S.away) { if (log.hash_found) S.away.hash = log; continue; }
@@ -273,6 +283,7 @@ document.addEventListener('visibilitychange', () => {
 });
 async function catchUp(away) {
   S.gen++;   // replays still waiting from before are dropped
+  S.catching = true;
   $('catchup').hidden = false;
   try {
     const [tr, latest] = await Promise.all([chain.getCurrentPlanet(), chain.getLatestLogIndex()]);
@@ -286,6 +297,7 @@ async function catchUp(away) {
     }
     if (hits) feed('<span class="num">' + fmt(hits) + '</span><span>' + (hits === 1 ? 'hit' : 'hits') + ' while you were away</span>');
   } catch (err) { console.error(err); }
+  finally { S.catching = false; }
   setTimeout(() => { $('catchup').hidden = true; }, 400);
 }
 function pollNow() {
@@ -304,11 +316,12 @@ function showMe() {
   $('hangarBtn').hidden = !p || S.spectating; $('connectBtn').hidden = !!p && !S.spectating;
   $('signOut').hidden = S.spectating;
   $('autoBtn').hidden = !p || S.spectating;   // auto-sign needs your own signed-in wallet
-  const canMenu = !!S.account;   // the hangar, the look and signing out live behind your playertag
-  $('who').classList.toggle('menu', canMenu); $('who').disabled = !canMenu;
+  const canMenu = !!S.account;   // the menu (the speed dial) is there once a wallet is connected
+  $('dialFab').hidden = !canMenu;
   if (!canMenu) closeMeMenu();
   if (S.spectating) $('connectBtn').textContent = 'Use my wallet';
   $('loadout').hidden = !p;
+  placeDial(); setTimeout(placeDial, 600);   // after the dock shows (and once its cards have their size)
   if (p) {
     const hashes = Ranks.hashesOf(p);
     gains.sync(statOf(p, 'hashlings'), p.wallet);
@@ -316,6 +329,7 @@ function showMe() {
       '<span class="hl" id="hlBal" title="Hashlings">' + gains.ICON + '<span>' + fmt(gains.shown ?? 0) + '</span></span>';
     const c = TPL.get(Number(p.equipped_crew_template)), w = TPL.get(Number(p.equipped_weapon_template));
     renderDock($('tCrew'), c, 'crew'); renderDock($('tArms'), w, 'arms');
+    $('ddHangar').textContent = (c ? c.card.name : 'No crew') + ' · ' + (w ? w.card.name : 'no weapon');
     $('loDmg').textContent = c && w ? damageOf(c.card, c.shine, Number(p.equipped_crew_template)) + damageOf(w.card, w.shine, Number(p.equipped_weapon_template)) : '–';
     const ready = !!(c && w && Number(p.equipped_crew_asset) && Number(p.equipped_weapon_asset));
     S.attackReady = ready;
@@ -406,15 +420,39 @@ $('connectBtn').addEventListener('click', async () => {
     if (!S.player) location.href = 'index.html';
   } catch (err) { feed('<em>' + esc(chain.friendlyError(err)) + '</em>'); }
 });
-// your playertag opens a small menu: hangar, the look, sign out
-function closeMeMenu() { $('meMenu').hidden = true; $('who').setAttribute('aria-expanded', 'false'); }
-$('who').addEventListener('click', e => {
-  e.stopPropagation();
-  const open = $('meMenu').hidden;
-  $('meMenu').hidden = !open; $('who').setAttribute('aria-expanded', String(open));
-  if (open) ($('hangarBtn').hidden ? $('historyBtn') : $('hangarBtn')).focus();
-});
-document.addEventListener('click', e => { if (!$('meMenu').hidden && !e.target.closest('.who-wrap')) closeMeMenu(); });
+// the menu: a speed dial. The round button opens a stack of actions, each with a line of state
+const dialAnim = () => { document.body.classList.add('dial-anim'); clearTimeout(dialAnim.t); dialAnim.t = setTimeout(() => document.body.classList.remove('dial-anim'), 500); };
+function closeMeMenu() { if (document.body.classList.contains('dial-open')) dialAnim(); document.body.classList.remove('dial-open'); $('dialFab').setAttribute('aria-expanded', 'false'); }
+function openDial() {
+  dialAnim(); document.body.classList.add('dial-open'); $('dialFab').setAttribute('aria-expanded', 'true');
+  dialStates();
+  const first = [...document.querySelectorAll('.dd')].reverse().find(b => !b.hidden);   // the one nearest the button
+  first?.focus({ preventScroll: true });
+}
+$('dialFab').addEventListener('click', () => (document.body.classList.contains('dial-open') ? closeMeMenu() : openDial()));
+$('dialDim').addEventListener('click', closeMeMenu);
+// on upright phones the round button sits just above the dock (whose height depends on the cards)
+function placeDial() {
+  const phone = matchMedia('(max-width: 640px) and (orientation: portrait)').matches, lo = $('loadout');
+  if (!phone) { document.documentElement.style.removeProperty('--fabB'); return; }
+  const top = lo.hidden ? innerHeight - 12 : lo.getBoundingClientRect().top;
+  document.documentElement.style.setProperty('--fabB', Math.max(12, innerHeight - top + 12) + 'px');
+}
+addEventListener('resize', placeDial);
+// each action's line of state, read when the dial opens
+function dialStates() {
+  const p = S.player, set = (id, text, cls = '') => { $(id).textContent = text; $(id).className = cls; };
+  set('ddOut', S.account || '');
+  set('ddAuto', S.autoSignAttack ? 'On for attack' : 'Off', S.autoSignAttack ? 'on' : '');
+  set('ddPlanets', S.track ? Number(S.track.index) + ' destroyed · now ' + S.track.planet : '');
+  if (S.account) chain.getCpu(S.account).then(c => set('ddCpu', ms(c.available) + ' of ' + ms(c.max) + ' ms left', c.max && c.available / c.max < 0.15 ? 'low' : '')).catch(() => set('ddCpu', ''));
+  chain.hasSwap().then(has => has ? Promise.all([chain.getSwapPool(), chain.getSwapConfig()]) : null).then(r => {
+    if (!r || !r[0] || !(Number(r[0].shards) > 0)) return set('ddMarket', r ? 'No liquidity yet' : 'Opens soon');
+    const q = chain.poolAt(r[0], r[1], Date.now() / 1000);
+    set('ddMarket', '~' + big(Math.round(Number(q.hashlings) / (Number(q.shards) / 10))) + ' hashlings per shard');
+  }).catch(() => set('ddMarket', ''));
+  if (!p) set('ddHangar', '');
+}
 // auto-sign: a switch per action; Save applies them together (the wallet approves once)
 const AUTO = { saved: [] };
 const autoChosen = () => [...document.querySelectorAll('#autoRows input')].filter(b => b.checked).map(b => b.value);
@@ -595,7 +633,7 @@ $('autoSave').addEventListener('click', async () => {
     $('autoSave').disabled = !autoDirty();
   }
 });
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('meMenu').hidden) { closeMeMenu(); $('who').focus(); } });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.body.classList.contains('dial-open')) { closeMeMenu(); $('dialFab').focus(); } });
 $('signOut').addEventListener('click', async () => {
   try { await chain.logout(); } catch (err) { console.error(err); }   // leave even if the wallet complains
   location.href = 'index.html';
