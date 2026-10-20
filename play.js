@@ -1,8 +1,8 @@
 // The Hash Rush, live screen: the planet being mined on planetmining, every crew that attacked in
 // the last 30 minutes in orbit, the attack log replayed as it comes in, and the hangar where a
 // player changes their playertag and equips crew and weapon.
-import * as chain from './chain.js?v=20261020l';
-import * as gains from './gains.js?v=20261020l';
+import * as chain from './chain.js?v=20261020m';
+import * as gains from './gains.js?v=20261020m';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
@@ -321,7 +321,7 @@ function showMe() {
   if (!canMenu) closeMeMenu();
   if (S.spectating) $('connectBtn').textContent = 'Use my wallet';
   $('loadout').hidden = !p;
-  placeDial(); setTimeout(placeDial, 600);   // after the dock shows (and once its cards have their size)
+
   if (p) {
     const hashes = Ranks.hashesOf(p);
     gains.sync(statOf(p, 'hashlings'), p.wallet);
@@ -421,22 +421,21 @@ $('connectBtn').addEventListener('click', async () => {
   } catch (err) { feed('<em>' + esc(chain.friendlyError(err)) + '</em>'); }
 });
 // the menu: a speed dial. The round button opens a stack of actions, each with a line of state
-const dialAnim = () => { document.body.classList.add('dial-anim'); clearTimeout(dialAnim.t); dialAnim.t = setTimeout(() => document.body.classList.remove('dial-anim'), 500); };
-function closeMeMenu() { if (document.body.classList.contains('dial-open')) dialAnim(); document.body.classList.remove('dial-open'); $('dialFab').setAttribute('aria-expanded', 'false'); }
+function closeMeMenu() { document.body.classList.remove('dial-open'); $('dialFab').setAttribute('aria-expanded', 'false'); }
 function openDial() {
-  dialAnim(); document.body.classList.add('dial-open'); $('dialFab').setAttribute('aria-expanded', 'true');
+  placeDial(); document.body.classList.add('dial-open'); $('dialFab').setAttribute('aria-expanded', 'true');
   dialStates();
-  const first = [...document.querySelectorAll('.dd')].reverse().find(b => !b.hidden);   // the one nearest the button
+  const first = [...document.querySelectorAll('.dd')].find(b => !b.hidden);   // the one nearest the Menu line
   first?.focus({ preventScroll: true });
 }
 $('dialFab').addEventListener('click', () => (document.body.classList.contains('dial-open') ? closeMeMenu() : openDial()));
 $('dialDim').addEventListener('click', closeMeMenu);
-// on upright phones the round button sits just above the dock (whose height depends on the cards)
+// the stack drops down from the Menu line, wherever the HUD has put it on this screen
 function placeDial() {
-  const phone = matchMedia('(max-width: 640px) and (orientation: portrait)').matches, lo = $('loadout');
-  if (!phone) { document.documentElement.style.removeProperty('--fabB'); return; }
-  const top = lo.hidden ? innerHeight - 12 : lo.getBoundingClientRect().top;
-  document.documentElement.style.setProperty('--fabB', Math.max(12, innerHeight - top + 12) + 'px');
+  const r = $('dialFab').getBoundingClientRect();
+  if (!r.width) return;
+  document.documentElement.style.setProperty('--dialL', Math.round(r.left) + 'px');
+  document.documentElement.style.setProperty('--dialT', Math.round(r.bottom + 14) + 'px');
 }
 addEventListener('resize', placeDial);
 // each action's line of state, read when the dial opens
