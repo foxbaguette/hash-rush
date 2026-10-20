@@ -7,10 +7,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Michroma&family=Barlow+Condensed:wght@500;600;800&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link rel="icon" href="favicon.svg?v=20261020e" type="image/svg+xml">
-<link rel="icon" href="favicon-32.png?v=20261020e" type="image/png" sizes="32x32">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=20261020e">
-<link rel="stylesheet" href="ui.css?v=20261020e">
+<link rel="icon" href="favicon.svg?v=20261020f" type="image/svg+xml">
+<link rel="icon" href="favicon-32.png?v=20261020f" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=20261020f">
+<link rel="stylesheet" href="ui.css?v=20261020f">
 <style>
   html, body { margin: 0; height: 100%; background: #000; color: var(--ink); overflow: hidden; font: 15px/1.5 var(--text); }
   canvas#c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; opacity: 0; transition: opacity 1s; }
@@ -370,11 +370,11 @@
   @media (max-width: 640px) and (orientation: portrait) {
     html, body { font-size: 14px; }
     .shade { background: linear-gradient(#000c 0%, #0000 24%), linear-gradient(#0000 60%, #000d 100%); }
-    .hud { left: calc(14px + var(--sal)); right: calc(14px + var(--sar)); top: calc(12px + var(--sat)); width: auto; }
+    .hud { left: calc(14px + var(--sal)); top: calc(12px + var(--sat)); width: min(230px, 56vw); }   /* the left side only: your name has the right */
     .hud .eyebrow { font-size: 10px; }
     .hud h1 { font-size: 22px; margin: 4px 0 0; }
     .meter { height: 3px; margin: 10px 0 6px; }
-    .nums { font-size: 12px; }
+    .nums { font-size: 12px; flex-direction: column; gap: 1px; }
     .me { right: calc(14px + var(--sar)); top: calc(10px + var(--sat)); flex-direction: column; align-items: flex-end; gap: 6px; }
     .who small { font-size: 9px; letter-spacing: 0.25em; }
     .who b { font-size: 14px; }
@@ -628,16 +628,16 @@
   </div>
 </dialog>
 
-<script src="planets-data.js?v=20261020e"></script>
-<script src="space.js?v=20261020e"></script>
-<script src="weapons-lib.js?v=20261020e"></script>
-<script src="aw-data.js?v=20261020e"></script>
-<script src="aw-designs.js?v=20261020e"></script>
-<script src="shots.js?v=20261020e"></script>
-<script src="sdf.js?v=20261020e"></script>
-<script src="ships-sdf.js?v=20261020e"></script>
-<script src="hero-gl.js?v=20261020e"></script>
-<script src="ranks.js?v=20261020e"></script>
+<script src="planets-data.js?v=20261020f"></script>
+<script src="space.js?v=20261020f"></script>
+<script src="weapons-lib.js?v=20261020f"></script>
+<script src="aw-data.js?v=20261020f"></script>
+<script src="aw-designs.js?v=20261020f"></script>
+<script src="shots.js?v=20261020f"></script>
+<script src="sdf.js?v=20261020f"></script>
+<script src="ships-sdf.js?v=20261020f"></script>
+<script src="hero-gl.js?v=20261020f"></script>
+<script src="ranks.js?v=20261020f"></script>
 <script>
 'use strict';
 /*
@@ -2575,6 +2575,6 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 </script>
-<script type="module" src="play.js?v=20261020e"></script>
+<script type="module" src="play.js?v=20261020f"></script>
 </body>
 </html>

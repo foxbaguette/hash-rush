@@ -1,8 +1,8 @@
 // The Hash Rush, live screen: the planet being mined on planetmining, every crew that attacked in
 // the last 30 minutes in orbit, the attack log replayed as it comes in, and the hangar where a
 // player changes their playertag and equips crew and weapon.
-import * as chain from './chain.js?v=20261020e';
-import * as gains from './gains.js?v=20261020e';
+import * as chain from './chain.js?v=20261020f';
+import * as gains from './gains.js?v=20261020f';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
@@ -290,7 +290,7 @@ function showMe() {
   if (p) {
     const hashes = Ranks.hashesOf(p);
     gains.sync(statOf(p, 'hashlings'), p.wallet);
-    $('who').innerHTML = '<small>Playing as' + (hashes ? ' · ' + Ranks.title(hashes) : '') + '</small><b style="color:' + colorOf(p) + '">' + esc(p.playertag) + Ranks.badge(hashes) + '</b>' +
+    $('who').innerHTML = '<small>Playing as</small><b style="color:' + colorOf(p) + '">' + esc(p.playertag) + Ranks.badge(hashes) + '</b>' +
       '<span class="hl" id="hlBal" title="Hashlings">' + gains.ICON + '<span>' + fmt(gains.shown ?? 0) + '</span></span>';
     const c = TPL.get(Number(p.equipped_crew_template)), w = TPL.get(Number(p.equipped_weapon_template));
     renderDock($('tCrew'), c, 'crew'); renderDock($('tArms'), w, 'arms');
