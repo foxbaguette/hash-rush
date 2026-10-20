@@ -1,8 +1,8 @@
 // The Hash Rush, live screen: the planet being mined on planetmining, every crew that attacked in
 // the last 30 minutes in orbit, the attack log replayed as it comes in, and the hangar where a
 // player changes their playertag and equips crew and weapon.
-import * as chain from './chain.js?v=20261020h';
-import * as gains from './gains.js?v=20261020h';
+import * as chain from './chain.js?v=20261020i';
+import * as gains from './gains.js?v=20261020i';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
@@ -426,6 +426,13 @@ $('autoClose').addEventListener('click', () => $('autoSign').close());
 // Destroyed planets: every planet so far, newest first, with when it fell, who found the hash and how
 // much of it was still standing (the finders table; planets from before it existed show no finder)
 const ago = sec => sec < 60 ? 'just now' : sec < 3600 ? Math.floor(sec / 60) + ' min ago' : sec < 86400 ? Math.floor(sec / 3600) + ' h ago' : Math.floor(sec / 86400) + (sec < 172800 ? ' day ago' : ' days ago');
+const lasted = s => s < 5400 ? Math.round(s / 60) + ' min' : Math.floor(s / 3600) + ' h ' + String(Math.round(s % 3600 / 60)).padStart(2, '0') + ' m';   // no line break inside a duration
+// a planet's picture (planets/, rendered with million-cubes/planet-thumbs.html), broken open once destroyed;
+// a renamed planet still finds its picture under its old name
+function planetPic(name, cut) {
+  const def = PlanetKit.PLANETS.find(p => p.name === name || (p.aka || []).includes(name));
+  return def ? '<img src="planets/' + def.name + (cut ? '-cut' : '') + '.webp?v=1" alt="" width="76" height="76" loading="lazy">' : '';
+}
 $('historyBtn').addEventListener('click', async () => {
   closeMeMenu();
   $('historyList').innerHTML = '<div class="empty">Loading…</div>';
@@ -434,15 +441,19 @@ $('historyBtn').addEventListener('click', async () => {
     const [planets, finders] = await Promise.all([chain.getPlanetHistory(), chain.getFinders()]);
     const byIndex = new Map(finders.map(f => [Number(f.index), f]));
     const now = Date.now() / 1000;
+    // each planet as a bounty ticket: the one being mined is open (the hash pays as many hashlings as the
+    // planet has blocks), the destroyed ones are claimed by whoever found their hash
     $('historyList').innerHTML = planets.map((p, i) => {
-      const blocks = chain.chainBlocks(Number(p.radius)), gone = Math.min(blocks, Number(p.destroyed_blocks));
-      if (i === 0) return '<div class="pl now"><h3>' + esc(p.planet) + '</h3><span class="ago">Arrived ' + ago(now - chain.chainTime(p.spawn_time)) + '</span>' +
-        '<p><b>' + fmt(gone) + '</b> of ' + fmt(blocks) + ' blocks gone so far</p><div class="bar"><i style="width:' + (100 * gone / blocks).toFixed(1) + '%"></i></div></div>';
+      const blocks = chain.chainBlocks(Number(p.radius)), gone = Math.min(blocks, Number(p.destroyed_blocks)), no = Number(p.index) + 1;
+      const stub = '<div class="stub">' + planetPic(p.planet, i > 0) + '<b>#' + no + '</b></div>';
+      if (i === 0) return '<div class="tk now"><div class="main"><div class="k">Open bounty · now mining</div><h3>' + esc(p.planet) + '</h3>' +
+        '<p>Reward <b>' + fmt(blocks) + ' hashlings</b> to whoever finds the hash · <b>' + fmt(gone) + '</b> of ' + fmt(blocks) + ' blocks gone · arrived ' + ago(now - chain.chainTime(p.spawn_time)) + '</p>' +
+        '<div class="bar"><i style="width:' + (100 * gone / blocks).toFixed(1) + '%"></i></div></div>' + stub + '</div>';
       const fell = chain.chainTime(planets[i - 1].spawn_time), f = byIndex.get(Number(p.index));
-      const left = f ? Number(f.remaining_blocks) : Math.max(0, blocks - gone), standing = blocks ? Math.round(100 * left / blocks) : 0;
-      const known = f && knownPlayers.get(String(f.wallet)), who = f ? '<span class="who" style="color:' + (known ? colorOf(known) : '#ff8a3d') + '">' + esc(f.playertag) + '</span>' + (known ? Ranks.badge(Ranks.hashesOf(known)) : '') : '';
-      return '<div class="pl"><h3>' + esc(p.planet) + '</h3><span class="ago">' + ago(now - fell) + '</span>' +
-        '<p>' + (f ? 'Hash found by ' + who + ' · ' : 'Hash found · ') + '<b>' + standing + '%</b> still standing · ' + fmt(blocks) + ' blocks</p></div>';
+      const known = f && knownPlayers.get(String(f.wallet)), who = f ? '<span class="fn" style="color:' + (known ? colorOf(known) : '#a3501a') + '">' + esc(f.playertag) + '</span>' + (known ? Ranks.badge(Ranks.hashesOf(known)) : '') : '';
+      return '<div class="tk"><div class="main"><div class="k">Bounty #' + no + ' · ' + ago(now - fell) + '</div><h3>' + esc(p.planet) + '</h3>' +
+        '<p>' + (f ? 'Claimed by ' + who + ' · paid <b>' + fmt(Number(f.planet_blocks) || blocks) + '</b> hashlings' : 'Claimed') + ' · lasted ' + lasted(fell - chain.chainTime(p.spawn_time)) + '</p></div>' +
+        stub + '<span class="stamp">Claimed</span></div>';
     }).join('') || '<div class="empty">No planets yet.</div>';
   } catch (err) { $('historyList').innerHTML = '<div class="empty">Could not load the planets right now.</div>'; console.error(err); }
 });
