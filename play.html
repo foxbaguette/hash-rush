@@ -7,10 +7,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Michroma&family=Barlow+Condensed:wght@500;600;800&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link rel="icon" href="favicon.svg?v=20261020i" type="image/svg+xml">
-<link rel="icon" href="favicon-32.png?v=20261020i" type="image/png" sizes="32x32">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=20261020i">
-<link rel="stylesheet" href="ui.css?v=20261020i">
+<link rel="icon" href="favicon.svg?v=20261020j" type="image/svg+xml">
+<link rel="icon" href="favicon-32.png?v=20261020j" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=20261020j">
+<link rel="stylesheet" href="ui.css?v=20261020j">
 <style>
   html, body { margin: 0; height: 100%; background: #000; color: var(--ink); overflow: hidden; font: 15px/1.5 var(--text); }
   canvas#c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; opacity: 0; transition: opacity 1s; }
@@ -96,6 +96,13 @@
   .feed .row.hash { background: #ff6a1acc; color: #140700; border-left-color: #fff; }
   .feed .row.hash b { color: #140700; }
   .feed .row.old { opacity: 0.35; }
+  /* an attack error: pinned as the newest row until an attack goes through again (play.js pinError) */
+  .feed .row.fault { align-items: flex-start; --pc: #ffb340; background: repeating-linear-gradient(135deg, #2a1d08e6 0 12px, #1f1606e6 12px 24px); color: #f6ead2; transition: background 0.6s, border-color 0.6s, opacity 1s; }
+  .feed .row.fault .t { font-weight: 600; white-space: nowrap; color: #ffc560; letter-spacing: 0.04em; }
+  .feed .row.fault .m { min-width: 0; overflow-wrap: anywhere; }
+  .feed .row.fault.ok { --pc: #5fd49a; background: #000a; color: #bfe8cf; }
+  .feed .row.fault.ok .t { color: #5fd49a; letter-spacing: 0; }
+  .feed .row.fault.ok .t::before { content: '✓ '; }
   .feed .rar-Abundant { color: #9aa0a6; } .feed .rar-Common { color: #c9c3b8; } .feed .rar-Rare { color: #5aa9ff; } .feed .rar-Epic { color: #c66bff; } .feed .rar-Legendary { color: #ffa53d; } .feed .rar-Mythical { color: #ff4d6d; }
   @keyframes feed-in { from { opacity: 0; transform: translateX(-12px); } }
 
@@ -157,7 +164,6 @@
   .mine-info ul { margin: 0 0 14px; padding-left: 18px; color: #cfc6b6; font-size: 14px; line-height: 1.7; }
   .mine-info li::marker { color: var(--a); }
   .mine-info .cpu-foot { margin-top: 6px; }
-  .mine-info .af-why { padding: 10px 12px; border-left: 2px solid #ff5a3d; background: #ff5a3d14; color: var(--ink); font-size: 14px; }   /* the error, as the chain or wallet gave it */
   .mine-info .cpu-foot { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
   /* destroyed planets: a list, newest first */
   dialog.history { width: min(560px, calc(100vw - 32px)); max-width: none; max-height: min(720px, calc(100dvh - 32px)); padding: 0; border: 1px solid var(--line); background: var(--glass); color: var(--ink); box-shadow: 0 40px 100px #000d; }
@@ -589,16 +595,6 @@
   </div>
 </dialog>
 
-<dialog class="history cpu mine-info" id="autoOff" aria-labelledby="afTitle">
-  <div class="head"><div><div class="eyebrow">Auto attack</div><h2 id="afTitle">Auto attack stopped</h2></div></div>
-  <div class="list">
-    <p>An attack ran into an error, so auto attack switched itself off instead of firing into the same error again and again.</p>
-    <p class="af-why" id="afWhy"></p>
-    <p>If the problem is sorted (for example, you have CPU again), start it again.</p>
-    <div class="cpu-foot"><button class="btn small" id="afRestart" type="button">Restart auto attack</button><button class="link" id="afKeep" type="button">Keep it off</button></div>
-  </div>
-</dialog>
-
 <dialog class="history cpu mine-info" id="mineInfo" aria-labelledby="mineInfoTitle">
   <div class="head"><div><div class="eyebrow">Mine hashlings</div><h2 id="mineInfoTitle">Why more CPU</h2></div><button class="link" id="mineInfoClose" type="button">Close</button></div>
   <div class="list">
@@ -689,16 +685,16 @@
   </div>
 </dialog>
 
-<script src="planets-data.js?v=20261020i"></script>
-<script src="space.js?v=20261020i"></script>
-<script src="weapons-lib.js?v=20261020i"></script>
-<script src="aw-data.js?v=20261020i"></script>
-<script src="aw-designs.js?v=20261020i"></script>
-<script src="shots.js?v=20261020i"></script>
-<script src="sdf.js?v=20261020i"></script>
-<script src="ships-sdf.js?v=20261020i"></script>
-<script src="hero-gl.js?v=20261020i"></script>
-<script src="ranks.js?v=20261020i"></script>
+<script src="planets-data.js?v=20261020j"></script>
+<script src="space.js?v=20261020j"></script>
+<script src="weapons-lib.js?v=20261020j"></script>
+<script src="aw-data.js?v=20261020j"></script>
+<script src="aw-designs.js?v=20261020j"></script>
+<script src="shots.js?v=20261020j"></script>
+<script src="sdf.js?v=20261020j"></script>
+<script src="ships-sdf.js?v=20261020j"></script>
+<script src="hero-gl.js?v=20261020j"></script>
+<script src="ranks.js?v=20261020j"></script>
 <script>
 'use strict';
 /*
@@ -2636,6 +2632,6 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 </script>
-<script type="module" src="play.js?v=20261020i"></script>
+<script type="module" src="play.js?v=20261020j"></script>
 </body>
 </html>

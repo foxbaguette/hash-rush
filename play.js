@@ -1,8 +1,8 @@
 // The Hash Rush, live screen: the planet being mined on planetmining, every crew that attacked in
 // the last 30 minutes in orbit, the attack log replayed as it comes in, and the hangar where a
 // player changes their playertag and equips crew and weapon.
-import * as chain from './chain.js?v=20261020i';
-import * as gains from './gains.js?v=20261020i';
+import * as chain from './chain.js?v=20261020j';
+import * as gains from './gains.js?v=20261020j';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
@@ -109,9 +109,31 @@ function feed(html, opts = {}) {
   el.innerHTML = html;
   const box = $('feed');
   box.prepend(el);
-  while (box.children.length > 6) box.lastChild.remove();
-  [...box.children].forEach((r, i) => { if (i >= 3) r.classList.add('old'); });   // a row only ever fades, never lights up again
+  if (S.errRow) box.prepend(S.errRow);   // an unresolved error stays the newest row
+  while (box.children.length > 6 + (S.errRow ? 1 : 0)) box.lastChild.remove();
+  [...box.children].filter(r => r !== S.errRow).forEach((r, i) => { if (i >= 3) r.classList.add('old'); });   // a row only ever fades, never lights up again
   setTimeout(() => el.classList.add('old'), 9000);
+}
+// An attack error is the newest row of the battle log and stays there, on top, until an attack goes
+// through again. It only says what went wrong. Once resolved it says so, then lets go and fades
+// with the rest of the log.
+function pinError(title, message) {
+  if (!S.errRow) { S.errRow = document.createElement('div'); S.errRow.className = 'row fault'; }
+  clearTimeout(S.errLetGo);
+  S.errRow.classList.remove('ok');
+  S.errRow.innerHTML = '<span class="t">' + esc(title) + '</span><span class="m">' + esc(message) + '</span>';
+  $('feed').prepend(S.errRow);
+}
+function clearError(text) {
+  const row = S.errRow;
+  if (!row || row.classList.contains('ok')) return;
+  row.classList.add('ok');
+  row.innerHTML = '<span class="t">' + esc(text) + '</span>';
+  S.errLetGo = setTimeout(() => {   // from here on an ordinary row: the next hits push it down and it fades
+    if (S.errRow !== row) return;
+    S.errRow = null;
+    setTimeout(() => row.classList.add('old'), 6000);
+  }, 2500);
 }
 const ARMS_BY_NAME = Object.fromEntries(ARMS_CARDS.map(c => [c.name, c]));
 // The hash found: the attack that found it lands first, then the planet breaks up, a band names
@@ -369,13 +391,6 @@ $('mineOn').addEventListener('change', e => {
 $('mineWhy').addEventListener('click', e => { e.preventDefault(); $('mineInfo').showModal(); });
 $('mineInfoClose').addEventListener('click', () => $('mineInfo').close());
 $('mineInfoCpu').addEventListener('click', () => { $('mineInfo').close(); $('cpuBtn').click(); });
-// auto attack stopped itself after an error: start it again, or leave it off
-$('afRestart').addEventListener('click', () => {
-  $('autoOff').close();
-  $('autoFire').checked = true; $('autoFire').dispatchEvent(new Event('change'));
-  say($('attackStatus'), '');
-});
-$('afKeep').addEventListener('click', () => $('autoOff').close());
 $('autoFire').addEventListener('change', e => {
   S.autoFire = e.target.checked && S.autoSignAttack;
   S.autoPause = 0;
@@ -594,33 +609,36 @@ $('attackBtn').addEventListener('click', async () => {
     S.cdEnd = Date.now() + (S.cooldown + 1) * 1000;
     S.player = { ...S.player, last_action: new Date().toISOString().slice(0, 19) };   // the cooldown starts now
     say($('attackStatus'), '');   // the shots on screen say it
+    clearError('Attack went through again');
     // your hit is in the log now: read it right away and play it (not in a background tab: its slowed
     // timers would hold up the next auto attack for minutes, and the catch-up on return shows it anyway)
     for (let i = 0; i < 4 && !document.hidden; i++) { await new Promise(r => setTimeout(r, 700)); await pollNow(); }
   } catch (err) {
     const wait = /wait (\d+) more second/i.exec(String(err?.message ?? err));
-    if (wait && S.player) { chainCooldown(Number(wait[1])); say($('attackStatus'), ''); }   // not an error: still recharging on the chain
-    else if (isNetworkError(err)) {
-      // the connection dropped (often a phone waking the tab): not the attack's fault, so auto attack stays on
-      // and tries again in a little while; if the attack did go through, the chain answers "wait N seconds"
+    if (wait && S.player) { chainCooldown(Number(wait[1])); say($('attackStatus'), ''); clearError('The last attack went through'); }   // not an error: still recharging on the chain (so the last attack did land)
+    else if (/cancel|closed|rejected by user|user rejected|denied/i.test(String(err?.message ?? err))) { say($('attackStatus'), ''); feed('<em>Attack cancelled: the wallet window was closed.</em>'); }   // the player's own choice, nothing to fix
+    else if (isNetworkError(err) || isExpired(err)) {
+      // the connection dropped, or the phone slept between signing and sending (the transaction expired):
+      // not the attack's fault, so auto attack stays on and tries again in a little while; if the attack
+      // did go through, the chain answers "wait N seconds"
       S.autoPause = Date.now() + 20000;
-      say($('attackStatus'), 'Lost the connection for a moment.' + (S.autoFire ? ' Auto attack tries again shortly.' : ' Try again.'));
-      clearTimeout(S.netNote); S.netNote = setTimeout(() => { if (/^Lost the connection/.test($('attackStatus').textContent)) say($('attackStatus'), ''); }, 25000);
+      say($('attackStatus'), '');
+      pinError(isExpired(err) ? 'Attack expired' : 'Lost the connection', chain.friendlyError(err) + (S.autoFire ? ' Auto attack tries again shortly.' : ''));
     } else {
       // a failed attack switches auto attack off, so it never keeps firing into the same error
       const wasAuto = S.autoFire;
       if (wasAuto) {
         S.autoFire = false; $('autoFire').checked = false;
         try { localStorage.setItem(AUTOFIRE_KEY, '0'); } catch { /* this visit only */ }
-        $('afWhy').textContent = chain.friendlyError(err);   // say so plainly, with a one-tap way back on
-        if (!$('autoOff').open) $('autoOff').showModal();
       }
-      say($('attackStatus'), chain.friendlyError(err) + (wasAuto ? ' Auto attack is off.' : ''), true);
+      say($('attackStatus'), '');
+      pinError('Attack failed', chain.friendlyError(err) + (wasAuto ? ' Auto attack is off.' : ''));
     }
   } finally { S.firing = false; updateAttack(); }
 });
 
 // a dropped or timed-out connection, as fetch and the wallets word it in different browsers
+const isExpired = err => /expired transaction|transaction (has )?expired|expired_tx/i.test(String(err?.message ?? err));
 const isNetworkError = err => /failed to fetch|networkerror|network error|load failed|network request failed|timed out|timeout|aborted|no wax node/i.test(String(err?.message ?? err));
 
 // cooldown on the button: a filling stripe and a countdown, then a burst when it is ready again

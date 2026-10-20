@@ -121,7 +121,7 @@ const AUTO_KEY = 'hashrush.autosign.v1';
 const savedAuto = () => { try { const a = JSON.parse(localStorage.getItem(AUTO_KEY)); if (Array.isArray(a)) return a; } catch { /* none */ } return ['attack']; };
 let Name = null;
 const whitelistOf = names => groupAuto(names).map(g => ({ contract: Name.from(g.contract), actions: g.actions.map(n => Name.from(n)) }));
-let kit = null, current;
+let kit = null, current, UI = null;
 let onPickerClosed = null;   // set while the wallet picker is open
 
 // The wallet code (about 600 KB) is only downloaded when someone reaches for it.
@@ -130,7 +130,7 @@ function getKit() {
     const W = await import('./vendor/wharfkit.js?v=4.0.2b');
     const { SessionKit, ChainDefinition, WebRenderer, WalletPluginAnchor, WalletPluginCloudWallet } = W;
     Name = W.Name;
-    const ui = new WebRenderer();
+    const ui = (UI = new WebRenderer());
     // closing the picker (x, Escape, backdrop) cancels login silently; hear it so login() settles
     const addCancelable = ui.addCancelablePromise;
     ui.addCancelablePromise = cancel => addCancelable((reason, silent) => { onPickerClosed?.(); return cancel(reason, silent); });
@@ -188,8 +188,13 @@ export function account() { return current ? String(current.actor) : undefined; 
 export async function transact(actions) {
   if (!current) await restoreSession();
   if (!current) throw new Error('Connect a wallet first.');
-  const result = await current.transact({ actions }, { broadcast: true, expireSeconds: 120 });
-  return String(result.resolved?.transaction.id ?? '');
+  // the game shows its own errors: the wallet library's status and error windows stay closed (they are
+  // modal, and one left open, unseen on a phone, blocked every tap). A prompt a wallet needs still shows.
+  UI?.setMinimal?.(true);
+  try {
+    const result = await current.transact({ actions }, { broadcast: true, expireSeconds: 120 });
+    return String(result.resolved?.transaction.id ?? '');
+  } finally { UI?.setMinimal?.(false); }
 }
 
 /** Signs the player up with their playertag (the player pays the RAM for their row). */
