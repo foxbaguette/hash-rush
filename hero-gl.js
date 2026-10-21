@@ -88,7 +88,7 @@ void main() {
   col = col / (1.0 + col * 0.25);
   o = vec4(pow(col, vec3(0.92)), 1.0);
 }`;
-  const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
+  const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error('hero ' + (type === gl.VERTEX_SHADER ? 'vertex' : 'fragment') + ' shader: ' + (gl.getShaderInfoLog(s) || 'no log from the driver')); return s; };
   const prog = gl.createProgram();
   gl.attachShader(prog, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(prog);
   const U = {}; for (const n of ['uMVP', 'uCam', 'uN', 'uScale', 'uLight', 'uSph', 'uT']) U[n] = gl.getUniformLocation(prog, n);

@@ -202,7 +202,7 @@ ${planet ? `
     const compile = (type, src) => {
       const s = gl.createShader(type);
       gl.shaderSource(s, src); gl.compileShader(s);
-      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error('sdf ' + (type === gl.VERTEX_SHADER ? 'vertex' : 'fragment') + ' shader: ' + (gl.getShaderInfoLog(s) || 'no log from the driver'));
       return s;
     };
     const program = fs => {
@@ -210,7 +210,7 @@ ${planet ? `
       gl.attachShader(p, compile(gl.VERTEX_SHADER, VS));
       gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fs));
       gl.linkProgram(p);
-      if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+      if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error('sdf link: ' + (gl.getProgramInfoLog(p) || 'no log from the driver'));
       const cache = {};
       return { p, u: new Proxy(cache, { get: (c, n) => (n in c ? c[n] : (c[n] = gl.getUniformLocation(p, n))) }) };
     };

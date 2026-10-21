@@ -169,7 +169,7 @@ void main() {
   }
   function compile(gl, type, src) {
     const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
-    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error('space ' + (type === gl.VERTEX_SHADER ? 'vertex' : 'fragment') + ' shader: ' + (gl.getShaderInfoLog(s) || 'no log from the driver'));
     return s;
   }
   function program(gl, fs) {
@@ -177,7 +177,7 @@ void main() {
     gl.attachShader(p, compile(gl, gl.VERTEX_SHADER, FULL_VS));
     gl.attachShader(p, compile(gl, gl.FRAGMENT_SHADER, fs));
     gl.linkProgram(p);
-    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error('space link: ' + (gl.getProgramInfoLog(p) || 'no log from the driver'));
     return p;
   }
 
