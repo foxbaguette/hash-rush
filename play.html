@@ -7,10 +7,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Michroma&family=Barlow+Condensed:wght@500;600;800&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link rel="icon" href="favicon.svg?v=20261021b" type="image/svg+xml">
-<link rel="icon" href="favicon-32.png?v=20261021b" type="image/png" sizes="32x32">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=20261021b">
-<link rel="stylesheet" href="ui.css?v=20261021b">
+<link rel="icon" href="favicon.svg?v=20261022a" type="image/svg+xml">
+<link rel="icon" href="favicon-32.png?v=20261022a" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=20261022a">
+<link rel="stylesheet" href="ui.css?v=20261022a">
 <style>
   html, body { margin: 0; height: 100%; background: #000; color: var(--ink); overflow: hidden; font: 15px/1.5 var(--text); }
   canvas#c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; opacity: 0; transition: opacity 1s; }
@@ -765,16 +765,58 @@
   </div>
 </dialog>
 
-<script src="planets-data.js?v=20261021b"></script>
-<script src="space.js?v=20261021b"></script>
-<script src="weapons-lib.js?v=20261021b"></script>
-<script src="aw-data.js?v=20261021b"></script>
-<script src="aw-designs.js?v=20261021b"></script>
-<script src="shots.js?v=20261021b"></script>
-<script src="sdf.js?v=20261021b"></script>
-<script src="ships-sdf.js?v=20261021b"></script>
-<script src="hero-gl.js?v=20261021b"></script>
-<script src="ranks.js?v=20261021b"></script>
+<script>
+// play.html?diag: a readout of what this device's browser and GPU can do, and what went wrong,
+// for players whose planet does not show (they send a screenshot of it)
+if (/[?&]diag\b/.test(location.search)) (() => {
+  const errs = [], lost = [];
+  addEventListener('error', e => errs.push(String(e.message || e.error || e).slice(0, 400)));
+  addEventListener('unhandledrejection', e => errs.push('promise: ' + String(e.reason?.message || e.reason).slice(0, 300)));
+  addEventListener('DOMContentLoaded', () => {
+    const c = document.getElementById('c');
+    c.addEventListener('webglcontextlost', () => lost.push(new Date().toLocaleTimeString()));
+  });
+  const probe = () => {
+    const out = [], q = s => matchMedia(s).matches ? 'yes' : 'no';
+    out.push(`viewport ${innerWidth}×${innerHeight} css, dpr ${devicePixelRatio}, screen ${screen.width}×${screen.height}`);
+    out.push(`phone layout ${q('(max-width: 640px) and (orientation: portrait)')}, portrait ${q('(orientation: portrait)')}, touch ${q('(pointer: coarse)')}`);
+    out.push(navigator.userAgent);
+    const c = document.getElementById('c'), gl = c.getContext('webgl2');
+    if (!gl) out.push('WebGL2: none');
+    else {
+      const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+      out.push(`GPU ${dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)}`);
+      out.push(`${gl.getParameter(gl.VERSION)} · lost now ${gl.isContextLost() ? 'YES' : 'no'}${lost.length ? ' · lost at ' + lost.join(', ') : ''}`);
+      if (!gl.isContextLost()) {
+        const P = k => gl.getParameter(gl[k]);
+        out.push(`canvas ${c.width}×${c.height} px · samples ${P('MAX_SAMPLES')} · tex ${P('MAX_TEXTURE_SIZE')} · 3D ${P('MAX_3D_TEXTURE_SIZE')} · rb ${P('MAX_RENDERBUFFER_SIZE')}`);
+        const hp = gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.HIGH_FLOAT);
+        out.push(`frag highp ${hp ? hp.precision : '?'} bits · glError ${gl.getError()}`);
+      }
+    }
+    out.push(`engine ${window.planet ? 'running' : 'NOT running'}`);
+    out.push(errs.length ? 'errors:\n' + errs.join('\n') : 'errors: none');
+    let box = document.getElementById('diagBox');
+    if (!box) {
+      box = document.createElement('pre'); box.id = 'diagBox';
+      box.style.cssText = 'position:fixed;left:8px;right:8px;bottom:8px;z-index:99;margin:0;padding:10px;max-height:60vh;overflow:auto;background:#000d;color:#9f9;font:11px/1.4 ui-monospace,monospace;white-space:pre-wrap;word-break:break-all;border:1px solid #9f96;border-radius:6px;pointer-events:auto';
+      document.body.appendChild(box);
+    }
+    box.textContent = out.join('\n');
+  };
+  addEventListener('load', () => { probe(); setTimeout(probe, 4000); setTimeout(probe, 12000); });
+})();
+</script>
+<script src="planets-data.js?v=20261022a"></script>
+<script src="space.js?v=20261022a"></script>
+<script src="weapons-lib.js?v=20261022a"></script>
+<script src="aw-data.js?v=20261022a"></script>
+<script src="aw-designs.js?v=20261022a"></script>
+<script src="shots.js?v=20261022a"></script>
+<script src="sdf.js?v=20261022a"></script>
+<script src="ships-sdf.js?v=20261022a"></script>
+<script src="hero-gl.js?v=20261022a"></script>
+<script src="ranks.js?v=20261022a"></script>
 <script>
 'use strict';
 /*
@@ -2712,6 +2754,6 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 </script>
-<script type="module" src="play.js?v=20261021b"></script>
+<script type="module" src="play.js?v=20261022a"></script>
 </body>
 </html>
