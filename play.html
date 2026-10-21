@@ -7,10 +7,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Michroma&family=Barlow+Condensed:wght@500;600;800&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link rel="icon" href="favicon.svg?v=20261020m" type="image/svg+xml">
-<link rel="icon" href="favicon-32.png?v=20261020m" type="image/png" sizes="32x32">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=20261020m">
-<link rel="stylesheet" href="ui.css?v=20261020m">
+<link rel="icon" href="favicon.svg?v=20261021a" type="image/svg+xml">
+<link rel="icon" href="favicon-32.png?v=20261021a" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=20261021a">
+<link rel="stylesheet" href="ui.css?v=20261021a">
 <style>
   html, body { margin: 0; height: 100%; background: #000; color: var(--ink); overflow: hidden; font: 15px/1.5 var(--text); }
   canvas#c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; opacity: 0; transition: opacity 1s; }
@@ -464,13 +464,26 @@
     .look-panel { left: 0; right: 0; top: auto; bottom: 0; width: auto; max-height: 50vh; min-height: 0; z-index: 30; border-width: 1px 0 0;
       padding: 12px calc(18px + var(--sar)) calc(16px + var(--sab)) calc(18px + var(--sal)); }
     .look-panel input[type=range] { height: 26px; }
-    .feed { left: calc(14px + var(--sal)); top: calc(150px + var(--sat)); bottom: auto; width: calc(100vw - 28px); gap: 4px; }   /* below the planet HUD, its two count lines and Menu */
+    /* the battle log as a scoreboard under your name, in the corner beside the HUD (play.js sets --feedTop
+       just under your name block): player and damage in two aligned columns, up to three rows */
+    .feed { left: auto; right: calc(14px + var(--sar)); top: var(--feedTop, calc(76px + var(--sat))); bottom: auto; width: min(140px, calc(100vw - 252px)); gap: 3px; align-items: stretch; }
     .hud-menu { margin-top: 8px; font-size: 11px; }
     .dial-open .loadout { opacity: 0; transform: translateY(40px); pointer-events: none; }
     .dial-open .feed { opacity: 0; }
-    .feed .row { font-size: 12px; gap: 6px; padding: 4px 8px 4px 6px; }
-    .feed .row .wchip { font-size: 9px; padding: 0 5px; max-width: 120px; }
+    .feed .row { display: block; max-width: none; padding: 0; background: none; border: 0; font-size: 10.5px; line-height: 1.35; text-align: right; color: #cfc6b6; text-shadow: 0 1px 4px #000, 0 0 2px #000; animation-name: feed-in-r; }
+    .feed .row > * + * { margin-left: 4px; }
+    .feed .row:has(.who) { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 10px; text-align: left; }
+    .feed .row:has(.who) > * + * { margin-left: 0; }
+    .feed .row .ar, .feed .row .wchip, .feed .row .rank { display: none; }
+    .feed .row .who { font: 600 10px var(--label); letter-spacing: 0.2em; text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .feed .row .num { font: 400 11px ui-monospace, SFMono-Regular, Consolas, monospace; text-align: right; }
+    .feed .row.hash { background: none; color: #ffcf5a; } .feed .row.hash b { color: #ffcf5a; }
+    .feed .row.fault { background: none; color: #f0dcb0; }
+    .feed .row.fault .t { display: block; font: 600 10px var(--label); letter-spacing: 0.16em; text-transform: uppercase; color: #ffc560; }
+    .feed .row.fault .m { display: block; margin-left: 0; }
+    .feed .row.fault.ok .t { color: #5fd49a; }
     .feed .row:nth-child(n+4) { display: none; }
+    @keyframes feed-in-r { from { transform: translateX(10px); opacity: 0; } }
     .loadout { left: calc(12px + var(--sal)); right: calc(12px + var(--sar)); bottom: calc(12px + var(--sab)); align-items: stretch; gap: 8px; text-align: left; }
     .loadout .status { order: -1; max-width: none; font-size: 12px; text-shadow: 0 1px 8px #000; }
     .dock { justify-content: space-between; gap: 10px; }
@@ -745,16 +758,16 @@
   </div>
 </dialog>
 
-<script src="planets-data.js?v=20261020m"></script>
-<script src="space.js?v=20261020m"></script>
-<script src="weapons-lib.js?v=20261020m"></script>
-<script src="aw-data.js?v=20261020m"></script>
-<script src="aw-designs.js?v=20261020m"></script>
-<script src="shots.js?v=20261020m"></script>
-<script src="sdf.js?v=20261020m"></script>
-<script src="ships-sdf.js?v=20261020m"></script>
-<script src="hero-gl.js?v=20261020m"></script>
-<script src="ranks.js?v=20261020m"></script>
+<script src="planets-data.js?v=20261021a"></script>
+<script src="space.js?v=20261021a"></script>
+<script src="weapons-lib.js?v=20261021a"></script>
+<script src="aw-data.js?v=20261021a"></script>
+<script src="aw-designs.js?v=20261021a"></script>
+<script src="shots.js?v=20261021a"></script>
+<script src="sdf.js?v=20261021a"></script>
+<script src="ships-sdf.js?v=20261021a"></script>
+<script src="hero-gl.js?v=20261021a"></script>
+<script src="ranks.js?v=20261021a"></script>
 <script>
 'use strict';
 /*
@@ -2692,6 +2705,6 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 </script>
-<script type="module" src="play.js?v=20261020m"></script>
+<script type="module" src="play.js?v=20261021a"></script>
 </body>
 </html>

@@ -1,8 +1,8 @@
 // The Hash Rush, live screen: the planet being mined on planetmining, every crew that attacked in
 // the last 30 minutes in orbit, the attack log replayed as it comes in, and the hangar where a
 // player changes their playertag and equips crew and weapon.
-import * as chain from './chain.js?v=20261020m';
-import * as gains from './gains.js?v=20261020m';
+import * as chain from './chain.js?v=20261021a';
+import * as gains from './gains.js?v=20261021a';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
@@ -321,6 +321,7 @@ function showMe() {
   if (!canMenu) closeMeMenu();
   if (S.spectating) $('connectBtn').textContent = 'Use my wallet';
   $('loadout').hidden = !p;
+  placeFeed();
 
   if (p) {
     const hashes = Ranks.hashesOf(p);
@@ -430,6 +431,14 @@ function openDial() {
 }
 $('dialFab').addEventListener('click', () => (document.body.classList.contains('dial-open') ? closeMeMenu() : openDial()));
 $('dialDim').addEventListener('click', closeMeMenu);
+// upright phones: the battle log sits just under your name block (taller in watch mode, with its button)
+function placeFeed() {
+  if (!matchMedia('(max-width: 640px) and (orientation: portrait)').matches) return document.documentElement.style.removeProperty('--feedTop');
+  const r = document.querySelector('.me').getBoundingClientRect();
+  document.documentElement.style.setProperty('--feedTop', Math.round(r.bottom + 14) + 'px');
+}
+addEventListener('resize', placeFeed);
+document.fonts?.ready.then(placeFeed);
 // the stack drops down from the Menu line, wherever the HUD has put it on this screen
 function placeDial() {
   const r = $('dialFab').getBoundingClientRect();
