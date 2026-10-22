@@ -7,10 +7,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Michroma&family=Barlow+Condensed:wght@500;600;800&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link rel="icon" href="favicon.svg?v=20261022c" type="image/svg+xml">
-<link rel="icon" href="favicon-32.png?v=20261022c" type="image/png" sizes="32x32">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=20261022c">
-<link rel="stylesheet" href="ui.css?v=20261022c">
+<link rel="icon" href="favicon.svg?v=20261022d" type="image/svg+xml">
+<link rel="icon" href="favicon-32.png?v=20261022d" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=20261022d">
+<link rel="stylesheet" href="ui.css?v=20261022d">
 <style>
   html, body { margin: 0; height: 100%; background: #000; color: var(--ink); overflow: hidden; font: 15px/1.5 var(--text); }
   canvas#c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; opacity: 0; transition: opacity 1s; }
@@ -848,19 +848,19 @@ if (/[?&]diag\b/.test(location.search)) (() => {
     b.textContent = `GRAPHICS ${head[0]} · ${head[1]}`; b.style.color = head[2];
     box.querySelector('pre').textContent = out.join('\n');
   };
-  addEventListener('load', () => { probe(); setTimeout(probe, 4000); setTimeout(probe, 12000); });
+  addEventListener('load', () => { probe(); let k = 0; const iv = setInterval(() => { probe(); if (++k >= 20) clearInterval(iv); }, 3000); });   // every 3 s for a minute
 })();
 </script>
-<script src="planets-data.js?v=20261022c"></script>
-<script src="space.js?v=20261022c"></script>
-<script src="weapons-lib.js?v=20261022c"></script>
-<script src="aw-data.js?v=20261022c"></script>
-<script src="aw-designs.js?v=20261022c"></script>
-<script src="shots.js?v=20261022c"></script>
-<script src="sdf.js?v=20261022c"></script>
-<script src="ships-sdf.js?v=20261022c"></script>
-<script src="hero-gl.js?v=20261022c"></script>
-<script src="ranks.js?v=20261022c"></script>
+<script src="planets-data.js?v=20261022d"></script>
+<script src="space.js?v=20261022d"></script>
+<script src="weapons-lib.js?v=20261022d"></script>
+<script src="aw-data.js?v=20261022d"></script>
+<script src="aw-designs.js?v=20261022d"></script>
+<script src="shots.js?v=20261022d"></script>
+<script src="sdf.js?v=20261022d"></script>
+<script src="ships-sdf.js?v=20261022d"></script>
+<script src="hero-gl.js?v=20261022d"></script>
+<script src="ranks.js?v=20261022d"></script>
 <script>
 'use strict';
 /*
@@ -1334,7 +1334,7 @@ if (!compProg) throw new Error('graphics: the final image cannot be put together
 
 // the distance-field look (sdf.js): off draws the voxels; the switch and sliders are kept per viewer
 const sdfKit = SdfKit.create(gl, SLOTS);
-const sdfOK = (() => {
+let sdfOK = (() => {
   try {
     if (GL_FAIL.includes('sdf')) throw new Error('forced by ?glfail');
     sdfKit.progs(); GL_STATE.sdf = 'ok'; return true;
@@ -2474,6 +2474,29 @@ function drawPlanetSdf(VP, Spin, camW, warp = 1, boom = -1) {
   gl.uniform1f(u.uBound, Math.min(Math.sqrt(3), (R * EXT + 1.5) / C));
   gl.drawArrays(gl.TRIANGLES, 0, 36);
 }
+// The self-check: a device can accept the distance-field shader and still draw nothing with it (no
+// error anywhere). An occlusion query counts whether the planet drew a single pixel; if it drew none in
+// 20 frames in a row while there is a planet to draw, the block look takes over. Once it has drawn, the
+// check stops. ?glfail=sdfdraw pretends it drew nothing.
+const sdfCheck = { q: [], zero: 0, done: !planetProg, fake: GL_FAIL.includes('sdfdraw') };
+function sdfChecked(draw, counts) {
+  if (sdfCheck.done || !counts) return draw();
+  const q = gl.createQuery();
+  gl.beginQuery(gl.ANY_SAMPLES_PASSED, q); draw(); gl.endQuery(gl.ANY_SAMPLES_PASSED);
+  sdfCheck.q.push(q);
+  while (!sdfCheck.done && sdfCheck.q.length && gl.getQueryParameter(sdfCheck.q[0], gl.QUERY_RESULT_AVAILABLE)) {
+    const first = sdfCheck.q.shift(), drew = gl.getQueryParameter(first, gl.QUERY_RESULT) && !sdfCheck.fake;
+    gl.deleteQuery(first);
+    if (drew) sdfCheck.done = true;
+    else if (++sdfCheck.zero >= 20) {
+      sdfCheck.done = true;
+      GL_STATE.sdf = 'off (drew nothing)';
+      console.error('graphics: the distance-field planet drew nothing on this device, blocks instead');
+      sdfOK = false; setLook(false, false);
+    }
+  }
+  if (sdfCheck.done) { for (const x of sdfCheck.q) gl.deleteQuery(x); sdfCheck.q.length = 0; }
+}
 function drawVoxSdf(model, r, up, f, s, p, VP, camW) {
   if (!model.sdf) model.sdf = sdfKit.modelTextures(model.pos, model.col);
   sdfKit.modelSoft(model.sdf, looks.ship.soft);
@@ -2714,7 +2737,7 @@ function frame(now) {
   let u;
   // the distance-field look holds until the burst (its flash covers the change to flying blocks)
   if (looks.on && BRK.on && boom >= BRK_POP) drawChunksSdf(VP, Spin, camW, boom);
-  else if (looks.on) drawPlanetSdf(VP, Spin, camW, BRK.form >= 0 && clock - BRK.form < 1 ? (clock - BRK.form) / 0.9 : 1, boom);
+  else if (looks.on) sdfChecked(() => drawPlanetSdf(VP, Spin, camW, BRK.form >= 0 && clock - BRK.form < 1 ? (clock - BRK.form) / 0.9 : 1, boom), !BRK.on && !(BRK.form >= 0 && clock - BRK.form < 1) && total - removed > 50);
   else if (planetProg) {
   gl.useProgram(planetProg.p);
   gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_3D, heatCTex);
@@ -2839,6 +2862,6 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 </script>
-<script type="module" src="play.js?v=20261022c"></script>
+<script type="module" src="play.js?v=20261022d"></script>
 </body>
 </html>

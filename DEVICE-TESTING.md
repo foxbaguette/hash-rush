@@ -9,6 +9,9 @@ Wait about 15 seconds. The coloured line at the top of the green box is the resu
 - **GRAPHICS OK · full look** (green): everything runs.
 - **GRAPHICS REDUCED · …** (amber): the game runs, but this device refused some effects, and the line says which ones.
   The planet and ships must still be visible. Note the line.
+  "sdf off (drew nothing)" means the smooth look was accepted but drew nothing, so the game switched to blocks
+  by itself.
+- **OK, but no planet or odd ships**: the self-check missed something. Screenshot it.
 - **GRAPHICS FAILED** (red): the 3D view did not start. Screenshot the whole box.
 
 The box also names the GPU, so you don't need to know which chip a phone has.
@@ -48,5 +51,6 @@ for example:
     play.html?diag&glfail=sdf,planet:full,planet:highp
     play.html?diag&glfail=sdf,sky,glow,smoke,air
 
-Names: `sdf` (the smooth look; blocks instead), `planet` and `blocks` (block planet and block ships; each
+Names: `sdf` (the smooth look; blocks instead), `sdfdraw` (the smooth look links but draws nothing; the
+self-check switches to blocks after 20 frames), `planet` and `blocks` (block planet and block ships; each
 also takes `:full`, `:highp`, and the planet `:16 slots` / `:no chunks`), `sky`, `glow`, `smoke`, `air`.

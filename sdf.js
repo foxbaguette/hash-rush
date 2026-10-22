@@ -16,9 +16,14 @@ precision highp float;
 uniform mat4 uMVP;
 uniform vec3 uBoxMin, uBoxMax;
 out vec3 vP;
-const int IDX[36] = int[36](0,1,3, 0,3,2, 4,6,7, 4,7,5, 0,4,5, 0,5,1, 2,3,7, 2,7,6, 0,2,6, 0,6,4, 1,5,7, 1,7,3);
+// the box's 36 corners (12 triangles), three bits each: some phone drivers misread a constant array
+// indexed by the vertex number, so the list is packed into four numbers instead
+int cornerOf(int id) {
+  uint w = id < 10 ? 668020936u : id < 20 ? 439638063u : id < 30 ? 639176151u : 127977u;
+  return int((w >> uint(3 * (id % 10))) & 7u);
+}
 void main() {
-  int c = IDX[gl_VertexID];
+  int c = cornerOf(gl_VertexID);
   vP = mix(uBoxMin, uBoxMax, vec3(float(c & 1), float((c >> 1) & 1), float((c >> 2) & 1)));
   gl_Position = uMVP * vec4(vP, 1.0);
 }`;
@@ -64,7 +69,7 @@ float vnoise(vec3 x) {
   return mix(mix(mix(h31(i), h31(i + vec3(1, 0, 0)), f.x), mix(h31(i + vec3(0, 1, 0)), h31(i + vec3(1, 1, 0)), f.x), f.y),
              mix(mix(h31(i + vec3(0, 0, 1)), h31(i + vec3(1, 0, 1)), f.x), mix(h31(i + vec3(0, 1, 1)), h31(i + vec3(1, 1, 1)), f.x), f.y), f.z);
 }
-float dens(vec3 g) { return texture(uSoftD, g / uDims).r; }
+float dens(vec3 g) { return textureLod(uSoftD, g / uDims, 0.0).r; }   // textureLod: inside the march loop texture() has no reliable mip level
 ivec3 cellOf(vec3 g) { return clamp(ivec3(floor(g)), ivec3(0), ivec3(uDims) - 1); }
 // smooth: the blurred solidness; its 0.5 contour is the surface
 float fSmooth(vec3 g) { return (0.5 - dens(g)) * (1.0 + uSoft); }
@@ -126,7 +131,7 @@ void main() {
   vec3 gi = g - n * 0.35;
   ivec3 ic = cellOf(gi);
   vec4 cn = texelFetch(uCol, ic, 0);
-  vec3 base = mix(cn.rgb, texture(uCol, gi / uDims).rgb, uColBlend);
+  vec3 base = mix(cn.rgb, textureLod(uCol, gi / uDims, 0.0).rgb, uColBlend);
   uint mg = uint(cn.a * 255.0 + 0.5);
   float mat = float(mg >> 5u), glow = float(mg & 31u) / 31.0;
   float rnd = h31(vec3(ic) + 0.37);

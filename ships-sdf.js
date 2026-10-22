@@ -28,14 +28,19 @@ layout(location = 4) in vec4 iAcc;    // accent colour
 layout(location = 5) in vec4 iGlow;   // engine glow colour
 uniform mat4 uVP; uniform vec3 uCam, uLight; uniform float uPx;
 const vec3 B = vec3(0.96, 0.34, 1.02);
-const int IDX[36] = int[36](0,1,3, 0,3,2, 4,6,7, 4,7,5, 0,4,5, 0,5,1, 2,3,7, 2,7,6, 0,2,6, 0,6,4, 1,5,7, 1,7,3);
+// the box's 36 corners (12 triangles), three bits each: some phone drivers misread a constant array
+// indexed by the vertex number, so the list is packed into four numbers instead
+int cornerOf(int id) {
+  uint w = id < 10 ? 668020936u : id < 20 ? 439638063u : id < 30 ? 639176151u : 127977u;
+  return int((w >> uint(3 * (id % 10))) & 7u);
+}
 out vec3 vP;
 flat out vec3 vCam, vL;
 flat out vec4 vPar, vBody, vAcc, vGlow, vPos, vRot;
 flat out float vSteps, vEps;
 vec3 qrot(vec4 q, vec3 v) { return v + 2.0 * cross(q.xyz, cross(q.xyz, v) + q.w * v); }
 void main() {
-  int c = IDX[gl_VertexID];
+  int c = cornerOf(gl_VertexID);
   vec3 lp = mix(-B, B, vec3(float(c & 1), float((c >> 1) & 1), float((c >> 2) & 1)));
   vP = lp;
   gl_Position = uVP * vec4(iPos.xyz + qrot(iRot, lp * iPos.w), 1.0);
