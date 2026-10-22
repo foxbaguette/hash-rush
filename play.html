@@ -7,10 +7,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Michroma&family=Barlow+Condensed:wght@500;600;800&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link rel="icon" href="favicon.svg?v=20261022b" type="image/svg+xml">
-<link rel="icon" href="favicon-32.png?v=20261022b" type="image/png" sizes="32x32">
-<link rel="apple-touch-icon" href="apple-touch-icon.png?v=20261022b">
-<link rel="stylesheet" href="ui.css?v=20261022b">
+<link rel="icon" href="favicon.svg?v=20261022c" type="image/svg+xml">
+<link rel="icon" href="favicon-32.png?v=20261022c" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=20261022c">
+<link rel="stylesheet" href="ui.css?v=20261022c">
 <style>
   html, body { margin: 0; height: 100%; background: #000; color: var(--ink); overflow: hidden; font: 15px/1.5 var(--text); }
   canvas#c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; opacity: 0; transition: opacity 1s; }
@@ -777,6 +777,40 @@ if (/[?&]diag\b/.test(location.search)) (() => {
     const c = document.getElementById('c');
     c.addEventListener('webglcontextlost', () => lost.push(new Date().toLocaleTimeString()));
   });
+  // every engine program linked on a spare context, plus variants of the planet one with one feature
+  // taken out each, so a driver that refuses it without a word still shows which part it chokes on
+  let shaders = null;
+  const shaderTest = () => {
+    let g;
+    try { g = document.createElement('canvas').getContext('webgl2'); } catch { /* below */ }
+    if (!g) return 'shader test: no spare context';
+    const link = (vs, fs) => {
+      const p = g.createProgram();
+      for (const [t, src] of [[g.VERTEX_SHADER, vs], [g.FRAGMENT_SHADER, fs]]) {
+        const s = g.createShader(t); g.shaderSource(s, src); g.compileShader(s);
+        if (!g.getShaderParameter(s, g.COMPILE_STATUS)) return (t === g.VERTEX_SHADER ? 'VS ' : 'FS ') + (g.getShaderInfoLog(s) || 'fail').slice(0, 120);
+        g.attachShader(p, s);
+      }
+      g.linkProgram(p);
+      return g.getProgramParameter(p, g.LINK_STATUS) ? 'ok' : 'LINK ' + (g.getProgramInfoLog(p) || 'fail').slice(0, 120);
+    };
+    const res = [];
+    const t = (name, f) => { try { const r = f(); res.push(name + ' ' + r); } catch (e) { res.push(name + ' ? ' + String(e.message || e).slice(0, 80)); } };
+    const rep = (src, a, b) => { if (!src.includes(a)) throw new Error('n/a'); return src.split(a).join(b); };
+    const fsHigh = () => SURF_FS.replace('precision mediump float;', 'precision highp float;');
+    t('planet', () => link(PLANET_VS, SURF_FS));
+    t('planet-slots16', () => link(rep(PLANET_VS, 'uSlotT[64]', 'uSlotT[16]'), SURF_FS));
+    t('planet-noloop', () => link(rep(PLANET_VS, 'for (int i = 0; i < 13; i++)', 'for (int i = 0; i < 0; i++)'), SURF_FS));
+    t('planet-nomask', () => link(rep(PLANET_VS, 'texelFetch(uMask, ic, 0).r', '0u'), SURF_FS));
+    t('planet-noheat', () => link(rep(rep(PLANET_VS, 'texelFetch(uHeatT, ic, 0).r', '0.0'), 'texelFetch(uHeatC, ic, 0).rgb', 'vec3(0.0)'), SURF_FS));
+    t('planet-fshigh', () => link(PLANET_VS, fsHigh()));
+    t('vox', () => link(VOX_VS, SURF_FS));
+    t('part', () => [PART_ADD_FS, PART_ALPHA_FS].map(f => link(PART_VS, f)).join('/'));
+    t('post', () => [DOWN_FS, BLUR_FS, COMP_FS, ATMO_FS].map(f => link(FULL_VS, f)).join('/'));
+    t('sdf', () => { SdfKit.create(g, 64).progs(); return 'ok'; });
+    g.getExtension('WEBGL_lose_context')?.loseContext();
+    return 'shaders: ' + res.join(' · ');
+  };
   const probe = () => {
     const out = [], q = s => matchMedia(s).matches ? 'yes' : 'no';
     out.push(`viewport ${innerWidth}×${innerHeight} css, dpr ${devicePixelRatio}, screen ${screen.width}×${screen.height}`);
@@ -795,29 +829,38 @@ if (/[?&]diag\b/.test(location.search)) (() => {
         out.push(`frag highp ${hp ? hp.precision : '?'} bits · glError ${gl.getError()}`);
       }
     }
-    out.push(`engine ${window.planet ? 'running' : 'NOT running'}`);
+    const st = window.hashRushGL || {}, shipErr = errs.some(e => e.includes('ShipKit'));
+    const reduced = Object.entries(st).filter(([, v]) => v !== 'ok').map(([k, v]) => k + ' ' + v).concat(shipErr ? ['crew ships as blocks'] : []);
+    // the headline: what a tester checks at a glance on each device
+    const head = !window.planet ? ['FAILED', 'the 3D view did not start', '#ff6a5a']
+      : reduced.length ? ['REDUCED', reduced.join(', '), '#ffc560'] : ['OK', 'full look', '#5fd49a'];
+    out.push(`engine ${window.planet ? 'running' : 'NOT running'} · ${Object.entries(st).map(([k, v]) => k + ' ' + v).join(', ') || 'no programs'}`);
+    out.push(shaders ??= shaderTest());
     out.push(errs.length ? 'errors:\n' + errs.join('\n') : 'errors: none');
     let box = document.getElementById('diagBox');
     if (!box) {
-      box = document.createElement('pre'); box.id = 'diagBox';
-      box.style.cssText = 'position:fixed;left:8px;right:8px;bottom:8px;z-index:99;margin:0;padding:10px;max-height:60vh;overflow:auto;background:#000d;color:#9f9;font:11px/1.4 ui-monospace,monospace;white-space:pre-wrap;word-break:break-all;border:1px solid #9f96;border-radius:6px;pointer-events:auto';
+      box = document.createElement('div'); box.id = 'diagBox';
+      box.style.cssText = 'position:fixed;left:8px;right:8px;bottom:8px;z-index:99;padding:10px;max-height:60vh;overflow:auto;background:#000d;color:#9f9;font:11px/1.4 ui-monospace,monospace;white-space:pre-wrap;word-break:break-all;border:1px solid #9f96;border-radius:6px;pointer-events:auto';
+      box.innerHTML = '<b style="display:block;font:700 16px/1.3 system-ui,sans-serif;margin-bottom:6px"></b><pre style="margin:0;font:inherit;white-space:inherit"></pre>';
       document.body.appendChild(box);
     }
-    box.textContent = out.join('\n');
+    const b = box.querySelector('b');
+    b.textContent = `GRAPHICS ${head[0]} · ${head[1]}`; b.style.color = head[2];
+    box.querySelector('pre').textContent = out.join('\n');
   };
   addEventListener('load', () => { probe(); setTimeout(probe, 4000); setTimeout(probe, 12000); });
 })();
 </script>
-<script src="planets-data.js?v=20261022b"></script>
-<script src="space.js?v=20261022b"></script>
-<script src="weapons-lib.js?v=20261022b"></script>
-<script src="aw-data.js?v=20261022b"></script>
-<script src="aw-designs.js?v=20261022b"></script>
-<script src="shots.js?v=20261022b"></script>
-<script src="sdf.js?v=20261022b"></script>
-<script src="ships-sdf.js?v=20261022b"></script>
-<script src="hero-gl.js?v=20261022b"></script>
-<script src="ranks.js?v=20261022b"></script>
+<script src="planets-data.js?v=20261022c"></script>
+<script src="space.js?v=20261022c"></script>
+<script src="weapons-lib.js?v=20261022c"></script>
+<script src="aw-data.js?v=20261022c"></script>
+<script src="aw-designs.js?v=20261022c"></script>
+<script src="shots.js?v=20261022c"></script>
+<script src="sdf.js?v=20261022c"></script>
+<script src="ships-sdf.js?v=20261022c"></script>
+<script src="hero-gl.js?v=20261022c"></script>
+<script src="ranks.js?v=20261022c"></script>
 <script>
 'use strict';
 /*
@@ -1238,6 +1281,37 @@ function compile(type, src) {
   if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error('engine ' + (type === gl.VERTEX_SHADER ? 'vertex' : 'fragment') + ' shader: ' + (gl.getShaderInfoLog(s) || 'no log from the driver'));
   return s;
 }
+// Graphics drivers differ: some refuse a program another accepts, often without saying why. Every
+// program is tried as written, then in simpler versions (a ladder, each step drops one more extra),
+// and one that never links is left out instead of stopping the game. GL_STATE records which step
+// each program ended on (?diag shows it); ?glfail=planet,sdf,... pretends those steps fail, for tests.
+const GL_STATE = window.hashRushGL = {};
+const GL_FAIL = (new URLSearchParams(location.search).get('glfail') || '').split(',').filter(Boolean);
+function ladder(name, steps) {
+  const why = [];
+  for (const [step, vs, fs] of steps) {
+    try {
+      if (GL_FAIL.includes(name) || GL_FAIL.includes(name + ':' + step)) throw new Error('forced by ?glfail');
+      const pr = program(vs, fs);
+      GL_STATE[name] = step === steps[0][0] ? 'ok' : step;
+      if (why.length) console.warn('graphics: ' + name + ' runs as "' + step + '" (' + why.join('; ') + ')');
+      return pr;
+    } catch (e) { why.push(step + ': ' + String(e.message || e).slice(0, 160)); }
+  }
+  GL_STATE[name] = 'off';
+  console.error('graphics: ' + name + ' is off (' + why.join('; ') + ')');
+  return null;
+}
+// each step keeps the ones before it: a full-precision surface, fewer melt slots, no break-up chunks, no crater glow
+const SURF_FS_HI = SURF_FS.replace('precision mediump float;', 'precision highp float;');
+const planetSteps = (() => {
+  const s1 = PLANET_VS.replace('uSlotT[' + SLOTS + ']', 'uSlotT[16]').replace('uSlotT[int(m) - 1]', 'uSlotT[min(int(m) - 1, 15)]');
+  const s2 = s1.replace('for (int i = 0; i < 13; i++)', 'for (int i = 0; i < 0; i++)');
+  const s3 = s2.replace('texelFetch(uHeatT, ic, 0).r', '(uT - 99.0)').replace('texelFetch(uHeatC, ic, 0).rgb', 'vec3(0.0)');
+  return [['full', PLANET_VS, SURF_FS], ['highp', PLANET_VS, SURF_FS_HI], ['16 slots', s1, SURF_FS_HI], ['no chunks', s2, SURF_FS_HI], ['no glow', s3, SURF_FS_HI]];
+})();
+const hiOf = src => src.replace('precision mediump float;', 'precision highp float;');
+const simple = (name, vs, fs) => ladder(name, [['full', vs, fs], ['highp', vs, hiOf(fs)]]);
 function program(vs, fs) {
   const p = gl.createProgram();
   gl.attachShader(p, compile(gl.VERTEX_SHADER, vs));
@@ -1248,17 +1322,24 @@ function program(vs, fs) {
   const u = new Proxy(cache, { get: (c, n) => (n in c ? c[n] : (c[n] = gl.getUniformLocation(p, n))) });
   return { p, u };
 }
-const planetProg = program(PLANET_VS, SURF_FS);
-const voxProg = program(VOX_VS, SURF_FS);
-const addProg = program(PART_VS, PART_ADD_FS);
-const alphaProg = program(PART_VS, PART_ALPHA_FS);
-const downProg = program(FULL_VS, DOWN_FS);
-const blurProg = program(FULL_VS, BLUR_FS);
-const compProg = program(FULL_VS, COMP_FS);
-const atmoProg = program(FULL_VS, ATMO_FS);
+const planetProg = ladder('planet', planetSteps);   // the block planet (the distance-field look's stand-in)
+const voxProg = simple('blocks', VOX_VS, SURF_FS);   // ships and shots as blocks
+const addProg = simple('glow', PART_VS, PART_ADD_FS);
+const alphaProg = simple('smoke', PART_VS, PART_ALPHA_FS);
+const downProg = simple('bloom', FULL_VS, DOWN_FS);
+const blurProg = simple('blur', FULL_VS, BLUR_FS);
+const compProg = simple('compose', FULL_VS, COMP_FS);
+const atmoProg = simple('air', FULL_VS, ATMO_FS);
+if (!compProg) throw new Error('graphics: the final image cannot be put together on this device');
 
 // the distance-field look (sdf.js): off draws the voxels; the switch and sliders are kept per viewer
 const sdfKit = SdfKit.create(gl, SLOTS);
+const sdfOK = (() => {
+  try {
+    if (GL_FAIL.includes('sdf')) throw new Error('forced by ?glfail');
+    sdfKit.progs(); GL_STATE.sdf = 'ok'; return true;
+  } catch (e) { GL_STATE.sdf = 'off'; console.error('graphics: sdf is off, blocks instead (' + String(e.message || e).slice(0, 200) + ')'); return false; }
+})();
 // crew ships as distance fields (ships-sdf.js): the class from the crew card, the finish from its shine
 const shipKit = ShipKit.create(gl);
 shipKit.prewarm();
@@ -1274,7 +1355,10 @@ const looks = (() => {
 })();
 const saveLooks = () => { try { localStorage.setItem(LOOK_KEY, JSON.stringify(looks)); } catch { /* fine */ } };
 
-const sky = SpaceSky.create(gl);   // galaxies, nebulae, stars (baked once)
+const sky = (() => {   // galaxies, nebulae, stars (baked once); a plain black sky if this device refuses it
+  try { if (GL_FAIL.includes('sky')) throw new Error('forced by ?glfail'); const s = SpaceSky.create(gl); GL_STATE.sky = 'ok'; return s; }
+  catch (e) { GL_STATE.sky = 'off'; console.error('graphics: sky is off (' + String(e.message || e).slice(0, 200) + ')'); return { draw() {} }; }
+})();
 const IDX = new Uint8Array([0,2,6, 0,6,3, 0,3,5, 0,5,1, 0,1,4, 0,4,2]);   // 3 faces around corner 0
 const ibo = gl.createBuffer();
 const emptyVao = gl.createVertexArray();
@@ -2289,7 +2373,7 @@ function renderLookPanel() {
   row.append(copy, reset); panel.appendChild(row);
 }
 function setLook(on, save = true) {
-  looks.on = on;
+  looks.on = on && sdfOK;
   if (save) saveLooks();   // only a choice made in the menu is kept
   if (on && !sdfDens && total) sdfPlanetBuild();
   for (const b of document.querySelectorAll('[data-look]')) b.setAttribute('aria-pressed', String((b.dataset.look === 'sdf') === on));
@@ -2414,7 +2498,7 @@ gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 4, gl.FLOAT, false, 32,
 gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 4, gl.FLOAT, false, 32, 16);
 gl.bindVertexArray(null);
 function drawParticles(list, prog, VP, pxScale, gain = 1) {
-  if (!list.length) return;
+  if (!list.length || !prog) return;
   let n = 0;
   for (const p of list) {
     if (n >= 5000) break;
@@ -2631,7 +2715,7 @@ function frame(now) {
   // the distance-field look holds until the burst (its flash covers the change to flying blocks)
   if (looks.on && BRK.on && boom >= BRK_POP) drawChunksSdf(VP, Spin, camW, boom);
   else if (looks.on) drawPlanetSdf(VP, Spin, camW, BRK.form >= 0 && clock - BRK.form < 1 ? (clock - BRK.form) / 0.9 : 1, boom);
-  else {
+  else if (planetProg) {
   gl.useProgram(planetProg.p);
   gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_3D, heatCTex);
   gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_3D, heatTex);
@@ -2665,15 +2749,15 @@ function frame(now) {
     gl.uniform1i(pr.u.uDens, 3); gl.uniform1i(pr.u.uCol, 4); gl.uniform1i(pr.u.uSoftD, 5); gl.uniform1f(pr.u.uBound, 0);
     gl.bindVertexArray(emptyVao);
     drawShip = drawVoxSdf;
-  } else {
+  } else if (voxProg) {
     gl.useProgram(voxProg.p);
     u = voxProg.u;
     gl.uniform1f(u.uT, clock);
     gl.uniform1f(u.uSNw, 0);
   }
-  for (const s of fleet) if (!sdfCrew.includes(s)) drawShip(s.model, s.right, s.up, s.fwd, shipScale(s), s.pos, VP, camW);
+  if (looks.on || voxProg) for (const s of fleet) if (!sdfCrew.includes(s)) drawShip(s.model, s.right, s.up, s.fwd, shipScale(s), s.pos, VP, camW);
   for (const pj of world.W.projs) {
-    if (!pj.model) continue;
+    if (!pj.model || !(looks.on || voxProg)) continue;
     let f = pj.phase === 'dig' ? scale(pj.to.n, -1) : pj.dir;
     const up0 = Math.abs(f[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0];
     let r = norm(cross(up0, f)), up = cross(f, r);
@@ -2684,7 +2768,7 @@ function frame(now) {
 
   // the atmosphere over the planet (the halo around it is drawn with the sky)
   const atm = total ? (0.35 + 0.65 * (total - removed) / total) * looks.atmo : 0;
-  if (atm > 0) {
+  if (atm > 0 && atmoProg) {
     gl.useProgram(atmoProg.p);
     u = atmoProg.u;
     gl.uniformMatrix4fv(u.uVP, false, VP);
@@ -2755,6 +2839,6 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 </script>
-<script type="module" src="play.js?v=20261022b"></script>
+<script type="module" src="play.js?v=20261022c"></script>
 </body>
 </html>
